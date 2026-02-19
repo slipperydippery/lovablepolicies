@@ -1,0 +1,763 @@
+{
+  "$schema": "BEAN Design System — UI component manifest, the complete encyclopedia of available components",
+  "$name": "BEAN Design System",
+  "$version": "1.1.0",
+
+  "rules": {
+    "icons": {
+      "library": "Font Awesome (loaded via CDN)",
+      "dropdownButtons": "Always use 'fa-caret-down' icon on the right side",
+      "selectComponents": "Always use 'fa-chevron-down' icon on the right side",
+      "noExternalIcons": "Never use icons from outside the design system"
+    },
+    "showcases": {
+      "syncMandatory": "When modifying a component, update its showcase file to reflect the changes",
+      "showcaseLocation": "src/components/library/showcases/{category}/",
+      "registry": "src/components/library/componentRegistry.tsx"
+    },
+    "sharedData": "Use shared data exports (e.g., defaultMenuItems, defaultAdministrations) instead of duplicating data",
+    "deviations": "Only deviate from component defaults when explicitly requested by the user",
+    "formPattern": "Wrap inputs in FormField for label, description, error, and help text"
+  },
+
+  "components": [
+    {
+      "name": "Button",
+      "category": "Actions",
+      "import": "@/components/ui/button",
+      "exports": ["Button", "buttonVariants"],
+      "description": "Clickable element for triggering actions with multiple variants and color schemes.",
+      "props": [
+        { "name": "variant", "type": "'solid' | 'outline' | 'ghost' | 'link'", "default": "solid" },
+        { "name": "colorScheme", "type": "'primary' | 'error' | 'success'", "default": "primary" },
+        { "name": "square", "type": "boolean", "default": false, "description": "Icon-only square button" },
+        { "name": "loading", "type": "boolean", "default": false },
+        { "name": "disabled", "type": "boolean", "default": false },
+        { "name": "asChild", "type": "boolean", "default": false }
+      ],
+      "usage": "<Button variant=\"solid\" colorScheme=\"primary\">Save</Button>\n<Button variant=\"outline\">Cancel</Button>\n<Button variant=\"ghost\" square><i className=\"fa-solid fa-plus\" /></Button>"
+    },
+    {
+      "name": "ButtonGroup",
+      "category": "Actions",
+      "import": "@/components/ui/button-group",
+      "exports": ["ButtonGroup", "buttonGroupVariants"],
+      "description": "Segmented control for single selection from a set of options.",
+      "props": [
+        { "name": "items", "type": "ButtonGroupItem[] | string[]", "required": true },
+        { "name": "value", "type": "string", "description": "Controlled value" },
+        { "name": "defaultValue", "type": "string" },
+        { "name": "onValueChange", "type": "(value: string) => void" },
+        { "name": "size", "type": "'default' | 'lg'", "default": "default" },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<ButtonGroup items={['Day', 'Week', 'Month']} defaultValue=\"Week\" />"
+    },
+    {
+      "name": "CardButton",
+      "category": "Actions",
+      "import": "@/components/ui/card-button",
+      "exports": ["CardButton"],
+      "description": "Full-width action button for adding new items.",
+      "props": [
+        { "name": "label", "type": "string", "required": true },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<CardButton label=\"Add new item\" />"
+    },
+    {
+      "name": "Input",
+      "category": "Data Entry",
+      "import": "@/components/ui/input",
+      "exports": ["Input"],
+      "description": "Single-line text input with icons, loading, and validation states.",
+      "props": [
+        { "name": "leadingIcon", "type": "ReactNode" },
+        { "name": "trailingIcon", "type": "ReactNode" },
+        { "name": "loading", "type": "boolean" },
+        { "name": "error", "type": "boolean" },
+        { "name": "static", "type": "boolean", "description": "Read-only display without borders" },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<FormField label=\"Email\" required>\n  <Input placeholder=\"john@example.com\" />\n</FormField>"
+    },
+    {
+      "name": "Textarea",
+      "category": "Data Entry",
+      "import": "@/components/ui/textarea",
+      "exports": ["Textarea"],
+      "description": "Multi-line text input with auto-resize and character counter.",
+      "props": [
+        { "name": "rows", "type": "number", "default": 3 },
+        { "name": "maxRows", "type": "number" },
+        { "name": "autoresize", "type": "boolean", "default": false },
+        { "name": "loading", "type": "boolean" },
+        { "name": "error", "type": "boolean" },
+        { "name": "static", "type": "boolean" },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<FormField label=\"Description\">\n  <Textarea rows={4} autoresize />\n</FormField>"
+    },
+    {
+      "name": "Select",
+      "category": "Data Entry",
+      "import": "@/components/ui/select",
+      "exports": ["Select"],
+      "description": "Single-select dropdown using Radix Select primitive.",
+      "props": [
+        { "name": "items", "type": "SelectItem[] | string[]", "required": true },
+        { "name": "value", "type": "string" },
+        { "name": "defaultValue", "type": "string" },
+        { "name": "onValueChange", "type": "(value: string) => void" },
+        { "name": "placeholder", "type": "string", "default": "Select an option" },
+        { "name": "leadingIcon", "type": "ReactNode" },
+        { "name": "trailingIcon", "type": "ReactNode" },
+        { "name": "loading", "type": "boolean" },
+        { "name": "disabled", "type": "boolean" },
+        { "name": "error", "type": "boolean" },
+        { "name": "static", "type": "boolean" },
+        { "name": "align", "type": "'start' | 'center' | 'end'", "default": "start" },
+        { "name": "side", "type": "'top' | 'bottom'", "default": "bottom" },
+        { "name": "sideOffset", "type": "number", "default": 4 }
+      ],
+      "usage": "<Select items={['Option A', 'Option B', 'Option C']} placeholder=\"Choose...\" />"
+    },
+    {
+      "name": "SelectMenu (Combobox)",
+      "category": "Data Entry",
+      "import": "@/components/ui/combobox",
+      "exports": ["SelectMenu"],
+      "description": "Searchable dropdown with typeahead, optional multi-selection, and keyboard navigation.",
+      "props": [
+        { "name": "items", "type": "SelectMenuItem[] | string[]", "required": true },
+        { "name": "value", "type": "string | string[]" },
+        { "name": "defaultValue", "type": "string | string[]" },
+        { "name": "onValueChange", "type": "(value: string | string[]) => void" },
+        { "name": "placeholder", "type": "string", "default": "Select an option" },
+        { "name": "searchable", "type": "boolean", "default": true },
+        { "name": "searchPlaceholder", "type": "string", "default": "Search..." },
+        { "name": "multiple", "type": "boolean", "default": false },
+        { "name": "leadingIcon", "type": "ReactNode" },
+        { "name": "trailingIcon", "type": "ReactNode" },
+        { "name": "loading", "type": "boolean" },
+        { "name": "disabled", "type": "boolean" },
+        { "name": "error", "type": "boolean" },
+        { "name": "align", "type": "'start' | 'center' | 'end'", "default": "start" },
+        { "name": "side", "type": "'top' | 'bottom'", "default": "bottom" },
+        { "name": "sideOffset", "type": "number", "default": 4 }
+      ],
+      "usage": "<SelectMenu items={items} multiple searchable placeholder=\"Select countries...\" />"
+    },
+    {
+      "name": "Checkbox",
+      "category": "Data Entry",
+      "import": "@/components/ui/checkbox",
+      "exports": ["Checkbox"],
+      "description": "Toggle between checked, unchecked, and indeterminate states.",
+      "props": [
+        { "name": "checked", "type": "boolean | 'indeterminate'" },
+        { "name": "defaultChecked", "type": "boolean | 'indeterminate'" },
+        { "name": "onCheckedChange", "type": "(checked: boolean | 'indeterminate') => void" },
+        { "name": "label", "type": "string" },
+        { "name": "description", "type": "string" },
+        { "name": "required", "type": "boolean" },
+        { "name": "icon", "type": "ReactNode", "description": "Custom icon for checked state" },
+        { "name": "indeterminateIcon", "type": "ReactNode", "description": "Custom icon for indeterminate state" },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<Checkbox label=\"Accept terms\" required />"
+    },
+    {
+      "name": "CheckboxGroup",
+      "category": "Data Entry",
+      "import": "@/components/ui/checkbox-group",
+      "exports": ["CheckboxGroup"],
+      "description": "Multiple selection from a list of checkboxes.",
+      "props": [
+        { "name": "items", "type": "CheckboxGroupItem[] | string[]", "required": true },
+        { "name": "value", "type": "string[]" },
+        { "name": "defaultValue", "type": "string[]" },
+        { "name": "onValueChange", "type": "(value: string[]) => void" },
+        { "name": "legend", "type": "string" },
+        { "name": "orientation", "type": "'vertical' | 'horizontal'", "default": "vertical" },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<CheckboxGroup items={['Red', 'Green', 'Blue']} legend=\"Colors\" />"
+    },
+    {
+      "name": "RadioGroup",
+      "category": "Data Entry",
+      "import": "@/components/ui/radio-group",
+      "exports": ["RadioGroup"],
+      "description": "Single selection from a list of radio buttons.",
+      "props": [
+        { "name": "items", "type": "RadioGroupItem[] | string[]", "required": true },
+        { "name": "value", "type": "string" },
+        { "name": "defaultValue", "type": "string" },
+        { "name": "onValueChange", "type": "(value: string) => void" },
+        { "name": "legend", "type": "string" },
+        { "name": "orientation", "type": "'vertical' | 'horizontal'", "default": "vertical" },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<RadioGroup items={['Small', 'Medium', 'Large']} defaultValue=\"Medium\" />"
+    },
+    {
+      "name": "Switch",
+      "category": "Data Entry",
+      "import": "@/components/ui/switch",
+      "exports": ["Switch"],
+      "description": "Boolean toggle switch with optional label and icons.",
+      "props": [
+        { "name": "checked", "type": "boolean" },
+        { "name": "defaultChecked", "type": "boolean" },
+        { "name": "onCheckedChange", "type": "(checked: boolean) => void" },
+        { "name": "label", "type": "string" },
+        { "name": "description", "type": "string" },
+        { "name": "required", "type": "boolean" },
+        { "name": "checkedIcon", "type": "ReactNode" },
+        { "name": "uncheckedIcon", "type": "ReactNode" },
+        { "name": "loading", "type": "boolean" },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<Switch label=\"Enable notifications\" />"
+    },
+    {
+      "name": "RangeInput",
+      "category": "Data Entry",
+      "import": "@/components/ui/range-input",
+      "exports": ["RangeInput"],
+      "description": "Two side-by-side inputs with a dash separator for value ranges.",
+      "props": [
+        { "name": "fromValue", "type": "string" },
+        { "name": "toValue", "type": "string" },
+        { "name": "onFromChange", "type": "(e: ChangeEvent) => void" },
+        { "name": "onToChange", "type": "(e: ChangeEvent) => void" },
+        { "name": "fromPlaceholder", "type": "string" },
+        { "name": "toPlaceholder", "type": "string" },
+        { "name": "leadingIcon", "type": "ReactNode", "description": "Shared leading icon for both inputs" },
+        { "name": "fromLeadingIcon", "type": "ReactNode", "description": "Leading icon for 'from' input only" },
+        { "name": "toLeadingIcon", "type": "ReactNode", "description": "Leading icon for 'to' input only" },
+        { "name": "disabled", "type": "boolean" },
+        { "name": "error", "type": "boolean" }
+      ],
+      "usage": "<RangeInput fromPlaceholder=\"Min\" toPlaceholder=\"Max\" />"
+    },
+    {
+      "name": "Calendar",
+      "category": "Data Entry",
+      "import": "@/components/ui/calendar",
+      "exports": ["Calendar"],
+      "description": "Calendar for selecting single dates, multiple dates, or date ranges. Also available as DatePicker.",
+      "relatedImports": ["@/components/ui/date-picker", "@/components/ui/date-range-picker"],
+      "props": [
+        { "name": "mode", "type": "'single' | 'multiple' | 'range'", "default": "single" },
+        { "name": "fixedWeeks", "type": "boolean", "default": true },
+        { "name": "numberOfMonths", "type": "number", "default": 1 },
+        { "name": "isDateDisabled", "type": "(date: Date) => boolean" },
+        { "name": "minDate", "type": "Date" },
+        { "name": "maxDate", "type": "Date" }
+      ]
+    },
+    {
+      "name": "DatePicker",
+      "category": "Data Entry",
+      "import": "@/components/ui/date-picker",
+      "exports": ["DatePicker"],
+      "description": "Single date selector with Calendar in a Popover trigger button.",
+      "relatedImports": ["@/components/ui/calendar"],
+      "props": [
+        { "name": "value", "type": "Date" },
+        { "name": "onChange", "type": "(date: Date | undefined) => void" },
+        { "name": "placeholder", "type": "string", "default": "Select date" },
+        { "name": "disabled", "type": "boolean" },
+        { "name": "error", "type": "boolean" },
+        { "name": "minDate", "type": "Date" },
+        { "name": "maxDate", "type": "Date" }
+      ],
+      "usage": "<FormField label=\"Start date\">\n  <DatePicker value={date} onChange={setDate} />\n</FormField>"
+    },
+    {
+      "name": "DateRangePicker",
+      "category": "Data Entry",
+      "import": "@/components/ui/date-range-picker",
+      "exports": ["DateRangePicker"],
+      "description": "Date range selector with Calendar in range mode inside a Popover.",
+      "relatedImports": ["@/components/ui/calendar"],
+      "props": [
+        { "name": "value", "type": "DateRange" },
+        { "name": "onChange", "type": "(range: DateRange | undefined) => void" },
+        { "name": "placeholder", "type": "string", "default": "Select date" },
+        { "name": "disabled", "type": "boolean" },
+        { "name": "error", "type": "boolean" },
+        { "name": "numberOfMonths", "type": "number", "default": 2 },
+        { "name": "minDate", "type": "Date" },
+        { "name": "maxDate", "type": "Date" }
+      ],
+      "usage": "<FormField label=\"Date range\">\n  <DateRangePicker value={range} onChange={setRange} numberOfMonths={2} />\n</FormField>"
+    },
+    {
+      "name": "FileUpload",
+      "category": "Data Entry",
+      "import": "@/components/ui/file-upload",
+      "exports": ["FileUpload"],
+      "description": "Drag-and-drop file upload with preview, progress, and validation.",
+      "props": [
+        { "name": "value", "type": "File | File[] | null" },
+        { "name": "onChange", "type": "(files: File | File[] | null) => void" },
+        { "name": "multiple", "type": "boolean", "default": false },
+        { "name": "accept", "type": "string", "default": "*" },
+        { "name": "maxSize", "type": "number", "description": "Max file size in bytes" },
+        { "name": "dropzone", "type": "boolean", "default": true },
+        { "name": "description", "type": "string" },
+        { "name": "icon", "type": "ReactNode" },
+        { "name": "disabled", "type": "boolean" },
+        { "name": "filesLayout", "type": "'list' | 'none'", "default": "none" },
+        { "name": "showDownload", "type": "boolean", "default": true },
+        { "name": "downloadDisabled", "type": "boolean", "default": false },
+        { "name": "deleteDisabled", "type": "boolean", "default": false },
+        { "name": "onDownload", "type": "(file: File, index: number) => void" }
+      ],
+      "usage": "<FileUpload multiple accept=\".pdf,.docx\" description=\"Max 10MB\" filesLayout=\"list\" />"
+    },
+    {
+      "name": "Search",
+      "category": "Navigation",
+      "import": "@/components/ui/search",
+      "exports": ["Search"],
+      "description": "Search input with inline dropdown results, grouped items, and recent searches.",
+      "props": [
+        { "name": "placeholder", "type": "string", "default": "Search..." },
+        { "name": "groups", "type": "SearchGroup[]" },
+        { "name": "onItemSelect", "type": "(item: SearchItem) => void" },
+        { "name": "onSearchChange", "type": "(term: string) => void" },
+        { "name": "disabled", "type": "boolean" },
+        { "name": "loading", "type": "boolean" },
+        { "name": "emptyMessage", "type": "string", "default": "No results found." }
+      ],
+      "usage": "<Search groups={searchGroups} onItemSelect={handleSelect} placeholder=\"Search pages...\" />"
+    },
+    {
+      "name": "FormField",
+      "category": "Data Entry",
+      "import": "@/components/ui/form-field",
+      "exports": ["FormField"],
+      "description": "Wrapper that adds label, description, hint, help text, and error state to any input.",
+      "props": [
+        { "name": "label", "type": "string" },
+        { "name": "description", "type": "string" },
+        { "name": "hint", "type": "string" },
+        { "name": "help", "type": "string" },
+        { "name": "error", "type": "string | boolean" },
+        { "name": "required", "type": "boolean" },
+        { "name": "size", "type": "'sm' | 'md' | 'lg'", "default": "md" },
+        { "name": "orientation", "type": "'vertical' | 'horizontal'", "default": "vertical" }
+      ],
+      "usage": "<FormField label=\"Name\" required error=\"This field is required\">\n  <Input />\n</FormField>"
+    },
+    {
+      "name": "Badge",
+      "category": "Data Display",
+      "import": "@/components/ui/badge",
+      "exports": ["Badge"],
+      "description": "Short text to represent status or category, with optional close button.",
+      "props": [
+        { "name": "colorScheme", "type": "'primary' | 'neutral' | 'success' | 'warning' | 'error' | 'purple'", "default": "primary" },
+        { "name": "icon", "type": "string | ReactNode" },
+        { "name": "status", "type": "boolean", "description": "Pill shape with colored dot" },
+        { "name": "label", "type": "string" },
+        { "name": "closable", "type": "boolean" },
+        { "name": "onClose", "type": "() => void" }
+      ],
+      "usage": "<Badge colorScheme=\"success\" status label=\"Active\" />\n<Badge closable label=\"Filter\" onClose={handleRemove} />"
+    },
+    {
+      "name": "Progress",
+      "category": "Data Display",
+      "import": "@/components/ui/progress",
+      "exports": ["Progress", "progressVariants"],
+      "description": "Horizontal progress bar with segments, labels, and animations.",
+      "props": [
+        { "name": "value", "type": "number | ProgressSegment[]", "default": 0 },
+        { "name": "max", "type": "number", "default": 100 },
+        { "name": "colorScheme", "type": "'primary' | 'neutral' | 'success' | 'warning' | 'error' | 'info'", "default": "primary" },
+        { "name": "animation", "type": "'none' | 'carousel' | 'swing' | 'elastic'", "default": "none" },
+        { "name": "showLabel", "type": "boolean", "default": false },
+        { "name": "indeterminate", "type": "boolean", "default": false }
+      ],
+      "usage": "<Progress value={65} colorScheme=\"success\" showLabel />\n<Progress indeterminate />"
+    },
+    {
+      "name": "Table",
+      "category": "Data Display",
+      "import": "@/components/ui/table",
+      "exports": ["Table", "tableVariants"],
+      "description": "Data table with sorting, selection, sticky header, column management, and sum footer.",
+      "props": [
+        { "name": "data", "type": "T[]", "required": true },
+        { "name": "columns", "type": "TableColumn<T>[]", "required": true },
+        { "name": "loading", "type": "boolean" },
+        { "name": "loadingRows", "type": "number", "default": 5 },
+        { "name": "emptyMessage", "type": "string", "default": "No data available" },
+        { "name": "selectable", "type": "boolean" },
+        { "name": "selectedRows", "type": "T[]" },
+        { "name": "onSelectionChange", "type": "(rows: T[]) => void" },
+        { "name": "rowKey", "type": "keyof T | ((row: T) => string | number)" },
+        { "name": "sort", "type": "TableSort" },
+        { "name": "onSortChange", "type": "(sort: TableSort) => void" },
+        { "name": "stickyHeader", "type": "boolean", "description": "Split-table mode with fixed header/footer" },
+        { "name": "maxRows", "type": "number", "default": 100 },
+        { "name": "onRowClick", "type": "(row: T, index: number) => void" },
+        { "name": "rowClassName", "type": "string | ((row: T, index: number) => string)" },
+        { "name": "columnManager", "type": "boolean" },
+        { "name": "onColumnsChange", "type": "(columns: TableColumn<T>[]) => void" },
+        { "name": "defaultColumns", "type": "TableColumn<T>[]", "description": "Default columns for reset in column manager" }
+      ],
+      "usage": "<Table data={rows} columns={columns} selectable sort={sort} onSortChange={setSort} />"
+    },
+    {
+      "name": "Tabs",
+      "category": "Navigation",
+      "import": "@/components/ui/tabs",
+      "exports": ["Tabs"],
+      "description": "Tab panels displayed one at a time with underline indicator.",
+      "props": [
+        { "name": "items", "type": "TabItem[]", "required": true },
+        { "name": "defaultValue", "type": "string" },
+        { "name": "value", "type": "string" },
+        { "name": "onValueChange", "type": "(value: string) => void" },
+        { "name": "showContent", "type": "boolean", "default": true }
+      ],
+      "usage": "<Tabs items={[\n  { label: 'Overview', content: <Overview /> },\n  { label: 'Details', content: <Details /> }\n]} />"
+    },
+    {
+      "name": "Stepper",
+      "category": "Navigation",
+      "import": "@/components/ui/stepper",
+      "exports": ["Stepper"],
+      "description": "Multi-step progress indicator with clickable steps.",
+      "props": [
+        { "name": "items", "type": "StepperItem[]", "required": true },
+        { "name": "value", "type": "number" },
+        { "name": "defaultValue", "type": "number", "default": 0 },
+        { "name": "onValueChange", "type": "(value: number) => void" },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<Stepper items={[\n  { title: 'Account' },\n  { title: 'Profile' },\n  { title: 'Review' }\n]} defaultValue={1} />"
+    },
+    {
+      "name": "Pagination",
+      "category": "Navigation",
+      "import": "@/components/ui/pagination",
+      "exports": ["Pagination", "paginationVariants", "paginationItemVariants"],
+      "description": "Page navigation with ellipsis, page selector, and results label.",
+      "props": [
+        { "name": "total", "type": "number", "required": true },
+        { "name": "itemsPerPage", "type": "number", "default": 20 },
+        { "name": "page", "type": "number" },
+        { "name": "defaultPage", "type": "number", "default": 1 },
+        { "name": "onPageChange", "type": "(page: number) => void" },
+        { "name": "siblingCount", "type": "number", "default": 1 },
+        { "name": "showEdges", "type": "boolean", "default": true },
+        { "name": "showPageSelect", "type": "boolean" },
+        { "name": "showResultsLabel", "type": "boolean" },
+        { "name": "size", "type": "'sm' | 'md' | 'lg'", "default": "md" },
+        { "name": "disabled", "type": "boolean" }
+      ],
+      "usage": "<Pagination total={200} showPageSelect showResultsLabel />"
+    },
+    {
+      "name": "SidebarNavigation (VerticalMenu)",
+      "category": "Navigation",
+      "import": "@/components/ui/sidebar-navigation",
+      "exports": ["VerticalMenu", "defaultMenuItems"],
+      "description": "Dark sidebar navigation with expandable sections and hover sub-panels. Default width: 234px expanded, 50px collapsed.",
+      "props": [
+        { "name": "items", "type": "VerticalMenuItemDef[]", "required": true },
+        { "name": "collapsed", "type": "boolean" },
+        { "name": "onCollapse", "type": "() => void" }
+      ],
+      "usage": "<VerticalMenu items={menuItems} collapsed={collapsed} onCollapse={() => setCollapsed(!collapsed)} />",
+      "rules": [
+        "Always use the full defaultMenuItems export -- never remove, filter, or omit items unless the user explicitly requests it",
+        "Always wire collapsed + onCollapse props with useState"
+      ]
+    },
+    {
+      "name": "Modal",
+      "category": "Overlay",
+      "import": "@/components/ui/modal",
+      "exports": ["Modal", "ModalClose"],
+      "description": "Dialog window with customizable header, body, footer, and fullscreen mode.",
+      "props": [
+        { "name": "open", "type": "boolean" },
+        { "name": "onOpenChange", "type": "(open: boolean) => void" },
+        { "name": "defaultOpen", "type": "boolean" },
+        { "name": "title", "type": "string" },
+        { "name": "description", "type": "string" },
+        { "name": "icon", "type": "ReactNode" },
+        { "name": "size", "type": "'sm' | 'md' | 'lg' | 'xl' | '2xl'", "default": "md" },
+        { "name": "fullscreen", "type": "boolean", "default": false },
+        { "name": "close", "type": "boolean | ButtonProps", "default": true },
+        { "name": "overlay", "type": "boolean", "default": true },
+        { "name": "dismissible", "type": "boolean", "default": true },
+        { "name": "header", "type": "ReactNode" },
+        { "name": "body", "type": "ReactNode" },
+        { "name": "footer", "type": "ReactNode" },
+        { "name": "content", "type": "ReactNode", "description": "Replaces header/body/footer" }
+      ],
+      "usage": "<Modal\n  title=\"Confirm\"\n  body={<p>Are you sure?</p>}\n  footer={<><Button variant=\"outline\">Cancel</Button><Button>Confirm</Button></>}\n>\n  <Button>Open Modal</Button>\n</Modal>"
+    },
+    {
+      "name": "DropdownMenu",
+      "category": "Overlay",
+      "import": "@/components/ui/dropdown-menu",
+      "exports": ["DropdownMenu"],
+      "description": "Contextual action menu with icons, separators, and nested groups.",
+      "props": [
+        { "name": "items", "type": "DropdownMenuItem[][]", "required": true, "description": "Groups of menu items" },
+        { "name": "align", "type": "'start' | 'center' | 'end'", "default": "start" },
+        { "name": "side", "type": "'top' | 'right' | 'bottom' | 'left'", "default": "bottom" },
+        { "name": "sideOffset", "type": "number", "default": 4 },
+        { "name": "disabled", "type": "boolean" },
+        { "name": "children", "type": "ReactNode", "required": true, "description": "Trigger element" }
+      ],
+      "usage": "<DropdownMenu items={[[\n  { label: 'Edit', icon: 'fa-solid fa-pen', onSelect: handleEdit },\n  { label: 'Delete', icon: 'fa-solid fa-trash', color: 'error', onSelect: handleDelete }\n]]}>\n  <Button variant=\"outline\">Actions <i className=\"fa-solid fa-caret-down\" /></Button>\n</DropdownMenu>"
+    },
+    {
+      "name": "Tooltip",
+      "category": "Overlay",
+      "import": "@/components/ui/tooltip",
+      "exports": ["Tooltip", "TooltipProvider", "TooltipRoot", "TooltipTrigger", "TooltipContent", "TooltipArrow"],
+      "description": "Popup information on hover/focus.",
+      "props": [
+        { "name": "text", "type": "string", "required": true },
+        { "name": "children", "type": "ReactNode", "required": true },
+        { "name": "side", "type": "'top' | 'right' | 'bottom' | 'left'", "default": "top" },
+        { "name": "align", "type": "'start' | 'center' | 'end'", "default": "center" },
+        { "name": "sideOffset", "type": "number", "default": 8 },
+        { "name": "delayDuration", "type": "number", "default": 0 },
+        { "name": "disabled", "type": "boolean" },
+        { "name": "open", "type": "boolean", "description": "Controlled open state" },
+        { "name": "onOpenChange", "type": "(open: boolean) => void" }
+      ],
+      "usage": "<Tooltip text=\"Save changes\">\n  <Button>Save</Button>\n</Tooltip>"
+    },
+    {
+      "name": "DownloadManager",
+      "category": "Overlay",
+      "import": "@/components/ui/download-manager",
+      "exports": ["DownloadManager"],
+      "description": "Fixed overlay panel for tracking file download progress.",
+      "props": [
+        { "name": "items", "type": "DownloadItem[]", "required": true },
+        { "name": "open", "type": "boolean", "default": true },
+        { "name": "onClose", "type": "() => void" },
+        { "name": "message", "type": "string" }
+      ],
+      "usage": "<DownloadManager items={downloads} onClose={() => setOpen(false)} />"
+    },
+    {
+      "name": "Alert",
+      "category": "Feedback",
+      "import": "@/components/ui/alert",
+      "exports": ["Alert"],
+      "description": "Inline alert banner for persistent contextual feedback.",
+      "props": [
+        { "name": "colorScheme", "type": "'info' | 'success' | 'error' | 'warning'", "default": "info" },
+        { "name": "title", "type": "string" },
+        { "name": "description", "type": "string", "required": true },
+        { "name": "icon", "type": "string", "default": "fa-solid fa-circle-info" }
+      ],
+      "usage": "<Alert colorScheme=\"success\" title=\"Saved\" description=\"Your changes have been saved.\" />"
+    },
+    {
+      "name": "Toast",
+      "category": "Feedback",
+      "import": "@/components/ui/toast",
+      "exports": ["Toast", "toastVariants"],
+      "description": "Temporary notification message for action feedback.",
+      "props": [
+        { "name": "colorScheme", "type": "'success' | 'error' | 'warning' | 'info'", "default": "info" },
+        { "name": "title", "type": "string" },
+        { "name": "description", "type": "string" }
+      ],
+      "hookUsage": "const { toast } = useToast();\ntoast({ title: 'Saved', description: 'Changes saved', colorScheme: 'success' });"
+    },
+    {
+      "name": "Header (App Header)",
+      "category": "Layout",
+      "import": "@/components/ui/app-header",
+      "exports": ["Header", "HeaderAction", "headerVariants", "headerActionVariants", "DefaultHeaderRight", "AdministrationSelector", "defaultHelpItems", "defaultUserMenuItems", "defaultAdministrations"],
+      "description": "Top-level application bar with logo, title, and action slots.",
+      "props": [
+        { "name": "logo", "type": "ReactNode" },
+        { "name": "title", "type": "string" },
+        { "name": "to", "type": "string", "default": "/" },
+        { "name": "left", "type": "ReactNode" },
+        { "name": "right", "type": "ReactNode" },
+        { "name": "toggle", "type": "ReactNode" }
+      ],
+      "usage": "<Header\n  logo={<img src={logo} />}\n  title=\"Spend Cloud\"\n  right={<DefaultHeaderRight />}\n/>"
+    },
+    {
+      "name": "PageHeader",
+      "category": "Layout",
+      "import": "@/components/ui/page-header",
+      "exports": ["PageHeader", "pageHeaderVariants"],
+      "description": "Page-level header with back button, title, subtitle, icon/avatar, and action slots.",
+      "props": [
+        { "name": "title", "type": "string", "required": true },
+        { "name": "subtitle", "type": "string" },
+        { "name": "icon", "type": "string", "description": "Font Awesome class" },
+        { "name": "avatar", "type": "string", "description": "Image URL" },
+        { "name": "avatarBg", "type": "string", "default": "bg-orange-100" },
+        { "name": "subtitleIcon", "type": "string" },
+        { "name": "showBack", "type": "boolean" },
+        { "name": "onBack", "type": "() => void" },
+        { "name": "backHref", "type": "string", "description": "Href for back button (if using as link)" },
+        { "name": "actions", "type": "ReactNode" },
+        { "name": "size", "type": "'sm' | 'md' | 'lg'", "default": "md" }
+      ],
+      "usage": "<PageHeader\n  title=\"Invoices\"\n  subtitle=\"Manage all invoices\"\n  icon=\"fa-solid fa-file-invoice\"\n  actions={<Button>Create</Button>}\n/>"
+    },
+    {
+      "name": "FilterPanel (SidebarFilter)",
+      "category": "Layout",
+      "import": "@/components/ui/filter-panel",
+      "exports": ["SidebarFilter"],
+      "description": "Collapsible right-side panel for content filtering with filter manager. Default width: 292px expanded, 48px collapsed.",
+      "props": [
+        { "name": "collapsed", "type": "boolean" },
+        { "name": "onCollapse", "type": "() => void" },
+        { "name": "filters", "type": "FilterItemDef[]" },
+        { "name": "defaultFilters", "type": "FilterItemDef[]" },
+        { "name": "onFiltersChange", "type": "(filters: FilterItemDef[]) => void" },
+        { "name": "children", "type": "ReactNode", "required": true }
+      ],
+      "usage": "<SidebarFilter collapsed={collapsed} onCollapse={toggle} filters={filters} onFiltersChange={setFilters}>\n  <FormField label=\"Status\"><Select items={statuses} /></FormField>\n</SidebarFilter>"
+    },
+    {
+      "name": "Card Patterns",
+      "category": "Layout",
+      "import": null,
+      "exports": [],
+      "description": "Reusable card layout patterns for overview stats, add-ons, actions, and webshop items composed from existing components (Button, Badge, Tooltip).",
+      "variants": ["Overview Card (collapsed/expanded)", "Add-on Card (active/disabled)", "Action Card", "Webshop Card"],
+      "usage": "See src/components/library/showcases/layout/OverviewCardsShowcase.tsx for all card composition patterns."
+    },
+    {
+      "name": "Toaster",
+      "category": "Feedback",
+      "import": "@/components/ui/toaster",
+      "exports": ["Toaster"],
+      "description": "Container that renders and animates multiple Toast notifications with positioning and exit transitions.",
+      "props": [
+        { "name": "toasts", "type": "ToastItem[]", "required": true, "description": "Array of active toast items to display" },
+        { "name": "onRemove", "type": "(id: string | number) => void", "required": true, "description": "Callback when a toast should be removed" },
+        { "name": "position", "type": "'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'", "default": "top-center" },
+        { "name": "max", "type": "number", "default": 5, "description": "Maximum number of visible toasts" }
+      ],
+      "usage": "const { toasts, remove } = useToast();\n<Toaster toasts={toasts} onRemove={remove} position=\"top-center\" />"
+    },
+    {
+      "name": "ColumnManagerPopover",
+      "category": "Data Display",
+      "import": "@/components/ui/column-manager-popover",
+      "exports": ["ColumnManagerPopover"],
+      "description": "Popover for showing/hiding and reordering table columns via checkboxes and drag handles. Typically used via Table's columnManager prop.",
+      "props": [
+        { "name": "columns", "type": "TableColumn[]", "required": true, "description": "Current column definitions" },
+        { "name": "defaultColumns", "type": "TableColumn[]", "description": "Default column definitions for the reset button" },
+        { "name": "onColumnsChange", "type": "(columns: TableColumn[]) => void", "description": "Callback when columns are toggled or reordered" }
+      ],
+      "usage": "<ColumnManagerPopover columns={columns} defaultColumns={defaults} onColumnsChange={setCols} />\n// Or via Table: <Table columnManager={{ defaultColumns }} ... />"
+    }
+  ],
+
+  "templates": {
+    "layoutRules": {
+      "shell": "flex flex-col h-screen bg-background",
+      "bodyRow": "flex flex-1 min-h-0",
+      "mainContent": "flex-1 flex flex-col min-w-0",
+      "spacing": {
+        "pageHeader": "px-sp-24 pt-sp-24 pb-sp-16",
+        "contentArea": "px-sp-24 pb-sp-8",
+        "paginationFooter": "px-sp-24 py-sp-16 border-t border-border",
+        "cardContainer": "bg-white shadow-sm rounded-md (use p-sp-16 or p-sp-24 for content padding)"
+      },
+      "required": ["Header (top)", "VerticalMenu (left, use defaultMenuItems in full -- never remove items unless user asks, always wire collapsed + onCollapse with useState)", "PageHeader (main content top)"],
+      "optional": ["SidebarFilter (right)", "Pagination (bottom)"]
+    },
+    "items": [
+      {
+        "name": "Overview Table",
+        "route": "/templates/overview-table",
+        "import": "@/templates/overview-table",
+        "description": "Data table page with filtering, sorting, selection, column management, and pagination.",
+        "components": [
+          "Header with DefaultHeaderRight",
+          "VerticalMenu with defaultMenuItems + collapsed/onCollapse state",
+          "PageHeader with back button and action buttons",
+          "SidebarFilter with useFilterState hook",
+          "Table with stickyHeader, selectable, columnManager",
+          "Pagination with showPageSelect and showResultsLabel",
+          "Badge chips for active filter values"
+        ],
+        "features": [
+          "Value-based filter chips linked to SidebarFilter via useFilterState",
+          "Sticky table header for scrollable content",
+          "Column manager popover for show/hide/reorder columns",
+          "Row selection with checkbox column",
+          "Row actions via DropdownMenu",
+          "Sort by column"
+        ]
+      },
+      {
+        "name": "About",
+        "route": "/templates/about",
+        "import": "@/templates/about",
+        "description": "Informational page with version info, support contacts, licenses, and office details.",
+        "components": [
+          "Header with DefaultHeaderRight",
+          "VerticalMenu with defaultMenuItems + collapsed/onCollapse state",
+          "PageHeader with back button and icon",
+          "SectionCard pattern (bg-white shadow-sm rounded-md p-sp-24)",
+          "Button for download action"
+        ],
+        "features": [
+          "Responsive 2-column card grid",
+          "External links for licenses, support portal, and directions",
+          "Social media links with Font Awesome brand icons"
+        ]
+      },
+      {
+        "name": "My Subscription",
+        "route": "/templates/my-subscription",
+        "import": "@/templates/my-subscription",
+        "description": "Subscription dashboard with plan usage, costs, progress bars, and add-on modules.",
+        "components": [
+          "Header with DefaultHeaderRight",
+          "VerticalMenu with defaultMenuItems + collapsed/onCollapse state",
+          "PageHeader with back button and icon",
+          "Tabs for current/previous usage",
+          "Progress with single and multi-segment bars",
+          "Tooltip for info icons",
+          "Button outline for sidebar actions",
+          "Plan cards (bg-white shadow-sm rounded-md p-sp-16) with header row and stats grid",
+          "StatItem inline helper for centered label/value pairs",
+          "AddOnCard inline helper with circular icon container (active: bg-blue-100 text-primary, disabled: bg-grey-200 text-grey-300)",
+          "Progress sub-card (border border-border rounded-md p-sp-16)",
+          "Side info cards (bg-white shadow-sm rounded-md p-sp-16)"
+        ],
+        "features": [
+          "Two-column layout with 280px sidebar info cards",
+          "Plan cards with stats grid (StatItem) and progress bars",
+          "Add-on module grid (3 columns) with active/inactive visual states",
+          "Tabbed content switching",
+          "Progress sub-card wrapped in border border-border rounded-md",
+          "Active add-ons: blue icon circle, normal text; Disabled: grey icon circle, grey text"
+        ]
+      }
+    ]
+  }
+}
