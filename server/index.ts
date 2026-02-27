@@ -17,6 +17,12 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 
+// ── Health check ────────────────────────────────────────────────────
+
+app.get("/", (_req: Request, res: Response) => {
+  res.json({ status: "ok" });
+});
+
 // ── Static context (matches the edge function) ──────────────────────
 
 const SUPPLIERS = [
