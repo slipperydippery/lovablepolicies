@@ -47,7 +47,7 @@ const initialExpenses: ExpenseItem[] = [
     amount: 15.0,
     status: "ai-approved",
     date: "2026-02-18",
-    aiNote: "User was caught in rain with a client. Emergency purchase for safety and comfort.",
+    aiNote: "Care worker was caught in the rain with a client. Emergency umbrella purchase (€15) from Blokker. Note: Blokker is not on the approved supplier list.",
     budgetCode: "4350",
     budgetName: "Incidental Budget",
     budgetTotal: 50,

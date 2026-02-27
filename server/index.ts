@@ -63,7 +63,7 @@ app.post("/api/chat", async (req: Request, res: Response) => {
       .eq("status", "active");
 
     const policyContext = (policies || [])
-      .map((p: any) => `- ${p.id}: "${p.name}" (category: ${p.category || "general"}, max: ${p.max_amount || p.limit_amount || "no limit"}, ledger: ${p.ledger || "unspecified"}, friction: ${p.friction || "normal"})`)
+      .map((p: any) => `- ${p.id}: "${p.name}" (category: ${p.category || "general"}, max: ${p.max_amount || p.limit_amount || "no limit"}, friction: ${p.friction || "normal"}${p.intent ? `, intent: ${p.intent}` : ""}${p.allowed_categories ? `, allowed: ${p.allowed_categories}` : ""})`)
       .join("\n");
 
     const supplierContext = SUPPLIERS

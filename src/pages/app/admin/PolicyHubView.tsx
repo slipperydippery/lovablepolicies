@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { mockLedger } from "@/data/mock-ledger";
 import { usePolicies } from "@/hooks/use-policies";
 import type { Policy } from "@/hooks/use-policies";
-import { resetPoliciesTable } from "@/data/onboarding-policies";
+import { resetPoliciesTable, populateBenchmarks } from "@/data/onboarding-policies";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import OnboardingModal from "@/components/OnboardingModal";
@@ -43,6 +43,7 @@ export default function PolicyHubView() {
   const { policies, isLoading, updatePolicy } = usePolicies();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [benchmarking, setBenchmarking] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [sort, setSort] = useState<TableSort>({ column: "id", direction: "asc" });
   const queryClient = useQueryClient();
@@ -57,6 +58,21 @@ export default function PolicyHubView() {
       toast.error("Failed to remove policies.");
     } finally {
       setRemoving(false);
+    }
+  };
+
+  const hasBenchmarks = policies.some((p) => !!p.benchmarkScore);
+
+  const handleBenchmark = async () => {
+    setBenchmarking(true);
+    try {
+      const count = await populateBenchmarks();
+      queryClient.invalidateQueries({ queryKey: ["policies"] });
+      toast.success(`Benchmarked ${count} policies against sector standards.`);
+    } catch {
+      toast.error("Failed to run benchmarks.");
+    } finally {
+      setBenchmarking(false);
     }
   };
 
@@ -160,6 +176,9 @@ export default function PolicyHubView() {
     "POL-2026-092": {
       explanation: "No GGZ benchmark exists for pharmacy runs. Consider reviewing peer organizations to set an appropriate limit.",
     },
+    "POL-2026-120": {
+      explanation: "No sector benchmark exists for ad-hoc emergency purchases. Consider setting a quarterly cap to control cumulative spend.",
+    },
   };
 
   /* Status badge helper */
@@ -192,6 +211,15 @@ export default function PolicyHubView() {
         >
           <i className="fa-solid fa-file-arrow-up" aria-hidden="true" />
           Add New Document
+        </Button>
+        <Button
+          variant="outline"
+          colorScheme="primary"
+          disabled={benchmarking || policies.length === 0 || hasBenchmarks}
+          onClick={handleBenchmark}
+        >
+          <i className="fa-solid fa-chart-bar" aria-hidden="true" />
+          {benchmarking ? "Benchmarking\u2026" : "Benchmark"}
         </Button>
         <Button
           variant="outline"
@@ -384,34 +412,6 @@ export default function PolicyHubView() {
                 </div>
               );
             })()}
-
-            {/* ---- Conflict Card (POL-2022-12) ---- */}
-            {selectedPolicy.id === "POL-2022-12" && selectedPolicy.status === "conflict" && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-sp-16 dark:border-red-800 dark:bg-red-950">
-                <p className="text-sm font-semibold text-red-700 dark:text-red-300 mb-sp-8">
-                  ⚠️ Conflict Detected
-                </p>
-                <p className="text-sm text-red-600 dark:text-red-400 leading-relaxed mb-sp-12">
-                  This policy allows <strong>€0.23/km</strong>. A newer uploaded document
-                  (HR_Memo_2025) states <strong>€0.21/km</strong>. Which should be the active atomic
-                  rule?
-                </p>
-                <div className="flex gap-sp-8">
-                  <Button
-                    variant="outline"
-                    onClick={() => resolveConflict("POL-2022-12", "active")}
-                  >
-                    Keep €0.23/km
-                  </Button>
-                  <Button
-                    colorScheme="error"
-                    onClick={() => resolveConflict("POL-2022-12", "deprecated", "EUR 0.21 per km")}
-                  >
-                    Apply €0.21/km &amp; Deprecate
-                  </Button>
-                </div>
-              </div>
-            )}
 
             {/* ---- Policy Rules Editor ---- */}
             <section className="pt-sp-8">

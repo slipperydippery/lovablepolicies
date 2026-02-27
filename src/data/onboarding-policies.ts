@@ -103,6 +103,62 @@ export const READY_POLICIES: ReadyPolicy[] = [
     startDate: "2026-02-01",
     endDate: "2027-01-31",
   },
+  {
+    id: "POL-2022-12",
+    name: "Travel Reimbursement",
+    category: "Travel & Transport",
+    maxAmount: "EUR 0,23 per km",
+    friction: "Low",
+    afasCode: 4510,
+    intent: "Reimburse employees for business travel by private car at a fixed rate per kilometre.",
+    limitAmount: 0,
+    benchmarkScore: "Matches Tax Authority",
+    benchmarkWarning: false,
+    startDate: "2022-01-01",
+    endDate: "2026-12-31",
+  },
+  {
+    id: "POL-2026-104",
+    name: "Office Supplies Mandate (Lyreco)",
+    category: "Office Supplies",
+    maxAmount: "EUR 150,00 per order",
+    friction: "Medium",
+    afasCode: 4230,
+    intent: "Mandate all office supply orders through the Lyreco framework agreement with an approval threshold.",
+    limitAmount: 150,
+    benchmarkScore: "Matches Sector Average",
+    benchmarkWarning: false,
+    startDate: "2026-01-01",
+    endDate: "2026-12-31",
+  },
+  {
+    id: "POL-2026-115",
+    name: "Location Furnishings & Equipment",
+    category: "Office Supplies",
+    maxAmount: "EUR 75,00 per item",
+    friction: "Low",
+    afasCode: 4230,
+    intent: "Allow care locations to purchase small furnishings and equipment (lamps, lighting, small furniture) via Lyreco without prior approval.",
+    limitAmount: 75,
+    benchmarkScore: "Matches Sector Average",
+    benchmarkWarning: false,
+    startDate: "2026-01-01",
+    endDate: "2026-12-31",
+  },
+  {
+    id: "POL-2026-120",
+    name: "Ad-Hoc Emergency Purchases",
+    category: "Emergency Supplies",
+    maxAmount: "EUR 25,00 per transaction",
+    friction: "Low",
+    afasCode: 4340,
+    intent: "Allow staff to make small ad-hoc purchases for urgent or unforeseen needs (e.g. rain gear, emergency supplies) at any nearby store without prior approval.",
+    limitAmount: 25,
+    benchmarkScore: "No Sector Benchmark",
+    benchmarkWarning: true,
+    startDate: "2026-01-01",
+    endDate: "2026-12-31",
+  },
 ];
 
 /* ── Conflict policies ── */
@@ -119,30 +175,6 @@ export const CONFLICT_POLICIES: ConflictPolicy[] = [
     sourceA: { label: "Employee Handbook", value: 15, display: "EUR 15" },
     sourceB: { label: "Finance Guidelines", value: 25, display: "EUR 25" },
     benchmark: { label: "Sector avg", value: 20, display: "EUR 20" },
-  },
-  {
-    id: "POL-2022-12",
-    name: "Travel Reimbursement",
-    category: "Travel & Transport",
-    friction: "Low",
-    afasCode: 4510,
-    intent: "Reimburse employees for business travel by private car at a fixed rate per kilometre.",
-    conflictField: "Rate per km",
-    sourceA: { label: "Employee Handbook", value: 0.23, display: "EUR 0,23/km" },
-    sourceB: { label: "Finance Guidelines", value: 0.21, display: "EUR 0,21/km" },
-    benchmark: { label: "Tax authority", value: 0.23, display: "EUR 0,23/km" },
-  },
-  {
-    id: "POL-2026-104",
-    name: "Office Supplies Mandate (Lyreco)",
-    category: "Office Supplies",
-    friction: "Medium",
-    afasCode: 4230,
-    intent: "Mandate all office supply orders through the Lyreco framework agreement with an approval threshold.",
-    conflictField: "Approval threshold",
-    sourceA: { label: "Care Policy", value: 100, display: "EUR 100" },
-    sourceB: { label: "Finance Guidelines", value: 250, display: "EUR 250" },
-    benchmark: { label: "Sector avg", value: 150, display: "EUR 150" },
   },
 ];
 
@@ -178,8 +210,8 @@ export async function upsertPolicies(
       intent: p.intent,
       status: "active" as const,
       ledger: String(p.afasCode),
-      benchmark_score: p.benchmarkScore,
-      benchmark_warning: p.benchmarkWarning,
+      benchmark_score: null,
+      benchmark_warning: false,
       start_date: p.startDate,
       end_date: p.endDate,
     })),
@@ -196,6 +228,8 @@ export async function upsertPolicies(
         intent: p.intent,
         status: "active" as const,
         ledger: String(p.afasCode),
+        benchmark_score: null,
+        benchmark_warning: false,
       };
     }),
   ];
@@ -203,4 +237,29 @@ export async function upsertPolicies(
   const { error } = await supabase.from("policies").upsert(rows, { onConflict: "id" });
   if (error) throw error;
   return rows.length;
+}
+
+export async function populateBenchmarks() {
+  const updates = [
+    ...READY_POLICIES.map((p) => ({
+      id: p.id,
+      benchmark_score: p.benchmarkScore,
+      benchmark_warning: p.benchmarkWarning,
+    })),
+    ...CONFLICT_POLICIES.map((p) => ({
+      id: p.id,
+      benchmark_score: `${p.benchmark.label}: ${p.benchmark.display}`,
+      benchmark_warning: true,
+    })),
+  ];
+
+  for (const u of updates) {
+    const { error } = await supabase
+      .from("policies")
+      .update({ benchmark_score: u.benchmark_score, benchmark_warning: u.benchmark_warning })
+      .eq("id", u.id);
+    if (error) throw error;
+  }
+
+  return updates.length;
 }

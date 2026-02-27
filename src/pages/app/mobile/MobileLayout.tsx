@@ -13,9 +13,10 @@ export default function MobileLayout() {
       <div className="relative flex flex-col w-full max-w-[430px] min-h-screen bg-background shadow-md">
         {/* Header */}
         <header className="flex items-center justify-between px-sp-16 h-14 border-b border-border shrink-0">
-          <span className="font-heading font-medium text-foreground text-base">
-            Policy Check
-          </span>
+          <div className="flex items-center gap-sp-8">
+            <img src="/botchie-logo.svg" alt="Botchie" className="h-6 w-6" />
+            <span className="font-heading font-medium text-foreground text-base">Botchie</span>
+          </div>
           <NavLink
             to="/app"
             className="text-xs text-muted-foreground hover:text-primary transition-colors"

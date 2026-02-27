@@ -147,37 +147,8 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
   // ─── Results Phase ───
   const resultsContent = (
     <div className="space-y-sp-16 max-h-[60vh] overflow-y-auto">
-      {/* Section: Ready */}
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-        Ready to Activate ({READY_POLICIES.length})
-      </p>
-
-      {READY_POLICIES.map((p) => (
-        <div
-          key={p.id}
-          className="rounded-lg border border-grey-200 dark:border-grey-700 bg-white dark:bg-grey-900 p-sp-16 border-l-4 border-l-success"
-        >
-          <div className="flex items-start gap-sp-12">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-50 shrink-0">
-              <i className="fa-solid fa-circle-check text-sm text-success" aria-hidden="true" />
-            </div>
-            <div className="flex-1 min-w-0 space-y-sp-4">
-              <div className="flex items-center gap-sp-8 flex-wrap">
-                <h3 className="text-sm font-semibold text-foreground">
-                  {p.id}: {p.name}
-                </h3>
-                <Badge colorScheme="success" label="Ready" />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {p.category} · {p.maxAmount} · AFAS {p.afasCode} · Friction: {p.friction}
-              </p>
-            </div>
-          </div>
-        </div>
-      ))}
-
       {/* Section: Conflicts */}
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-sp-8">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
         Conflicts to Resolve ({CONFLICT_POLICIES.length})
       </p>
 
@@ -301,6 +272,35 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
           </div>
         );
       })}
+
+      {/* Section: Ready */}
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-sp-8">
+        Ready to Activate ({READY_POLICIES.length})
+      </p>
+
+      {READY_POLICIES.map((p) => (
+        <div
+          key={p.id}
+          className="rounded-lg border border-grey-200 dark:border-grey-700 bg-white dark:bg-grey-900 p-sp-16 border-l-4 border-l-success"
+        >
+          <div className="flex items-start gap-sp-12">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-50 shrink-0">
+              <i className="fa-solid fa-circle-check text-sm text-success" aria-hidden="true" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-sp-4">
+              <div className="flex items-center gap-sp-8 flex-wrap">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {p.id}: {p.name}
+                </h3>
+                <Badge colorScheme="success" label="Ready" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {p.category} · {p.maxAmount} · AFAS {p.afasCode} · Friction: {p.friction}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
 
       {/* Activate button */}
       <Button

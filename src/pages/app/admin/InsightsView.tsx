@@ -76,7 +76,7 @@ export default function InsightsView() {
       <PageHeader
         title="Policy Health & Insights"
         subtitle="Proactive command center for monitoring policy effectiveness, friction points, and meaningful exceptions."
-        size="lg"
+        icon="fa-solid fa-chart-line"
       />
 
       {/* KPI Cards */}

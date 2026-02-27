@@ -195,7 +195,7 @@ function useSpeechRecognition(onResult: (text: string) => void) {
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "assistant",
-  content: "Hi Anouk! 👋 I'm your procurement assistant. Ask me anything — for example: *\"Can I buy an umbrella at Blokker for €15?\"*",
+  content: "Hi Anouk! 👋 I'm your procurement assistant. Tell me what you need to buy — for example: *\"Can I buy diapers at Bol.com if I'm running low?\"*",
   timestamp: timeNow(),
 };
 

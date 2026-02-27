@@ -17,8 +17,8 @@ export default function AdminLayout() {
       <aside className="flex flex-col w-[240px] shrink-0 bg-grey-100 text-foreground border-r border-border">
         {/* Logo area */}
         <div className="flex items-center gap-sp-12 px-sp-16 h-14 border-b border-border">
-          <i className="fa-solid fa-shield-halved text-primary text-lg" aria-hidden="true" />
-          <span className="font-heading font-medium text-sm">Policy Admin</span>
+          <img src="/botchie-logo.svg" alt="Botchie" className="h-6 w-6" />
+          <span className="font-heading font-medium text-sm">Botchie</span>
         </div>
 
         {/* Nav items */}
