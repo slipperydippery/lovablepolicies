@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Select } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -19,11 +20,6 @@ function getProgressColor(pct: number): "success" | "warning" | "error" {
   return pct > 100 ? "error" : "warning";
 }
 
-const periodItems = [
-  { value: "month", label: "Current Month (April 2026)" },
-  { value: "ytd", label: "Year-to-Date (YTD)" },
-  { value: "yearly", label: "Yearly" },
-];
 
 // Monthly spent overrides for specific sub-ledger codes
 const monthlySpentOverrides: Record<number, number> = {
@@ -31,12 +27,19 @@ const monthlySpentOverrides: Record<number, number> = {
 };
 
 export default function BudgetView() {
+  const { t } = useTranslation();
   const { activeLocation, setActiveLocation } = useActiveLocation();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["cat-001"]));
   const [period, setPeriod] = useState("month");
   const [interventionOpen, setInterventionOpen] = useState(false);
   const [optionA, setOptionA] = useState(false);
   const [optionB, setOptionB] = useState(false);
+
+  const periodItems = [
+    { value: "month", label: t("budget.periodMonth") },
+    { value: "ytd", label: t("budget.periodYtd") },
+    { value: "yearly", label: t("budget.periodYearly") },
+  ];
 
   const isMonthly = period === "month";
 
@@ -62,7 +65,7 @@ export default function BudgetView() {
     setInterventionOpen(false);
     setOptionA(false);
     setOptionB(false);
-    toast.success("Policy updated. Care workers will be notified in chat if they exceed the new €25 limit.");
+    toast.success(t("budget.policyUpdated"));
   };
 
   // Monthly helpers
@@ -76,8 +79,8 @@ export default function BudgetView() {
     <div className="space-y-sp-24">
       {/* ---- Header ---- */}
       <PageHeader
-        title="Budget Overview"
-        subtitle="Track spending and pacing across ledger accounts."
+        title={t("budget.title")}
+        subtitle={t("budget.subtitle")}
         icon="fa-solid fa-coins"
       />
 
@@ -85,18 +88,18 @@ export default function BudgetView() {
       <div className="flex gap-sp-16">
         <div className="flex-1 max-w-md">
           <label className="block text-xs font-semibold text-muted-foreground uppercase mb-sp-4">
-            Location
+            {t("budget.location")}
           </label>
           <Select
             items={locationItems}
             value={activeLocation.id}
             onValueChange={setActiveLocation}
-            placeholder="Select location"
+            placeholder={t("budget.selectLocation")}
           />
         </div>
         <div className="w-72">
           <label className="block text-xs font-semibold text-muted-foreground uppercase mb-sp-4">
-            Period
+            {t("budget.period")}
           </label>
           <Select
             items={periodItems}
@@ -112,24 +115,24 @@ export default function BudgetView() {
           {[
             {
               icon: "fa-solid fa-wallet",
-              label: "Monthly Budget (April)",
+              label: t("budget.monthlyBudget"),
               value: "€ 166.666",
               valueColor: "text-primary",
-              subtext: "Allocated budget for the current month.",
+              subtext: t("budget.monthlyBudgetSubtext"),
             },
             {
               icon: "fa-solid fa-receipt",
-              label: "Spent (April)",
+              label: t("budget.spentApril"),
               value: "€ 180.000",
               valueColor: "text-orange-600",
-              subtext: "Total expenditure recorded this month.",
+              subtext: t("budget.spentAprilSubtext"),
             },
             {
               icon: "fa-solid fa-triangle-exclamation",
-              label: "Forecast (Run Rate)",
-              value: "+8% Over Budget",
+              label: t("budget.forecastRunRate"),
+              value: t("budget.forecastValue"),
               valueColor: "text-error",
-              subtext: "Projected overspend based on current pacing.",
+              subtext: t("budget.forecastSubtext"),
               alert: true,
             },
           ].map((card) => (
@@ -155,9 +158,9 @@ export default function BudgetView() {
       ) : (
         <div className="grid grid-cols-3 gap-sp-16">
           {[
-            { icon: "fa-solid fa-wallet", label: "Total Annual Budget", value: activeLocation.annualBudget, valueColor: "text-primary", subtext: "Full-year allocated budget for this location." },
-            { icon: "fa-solid fa-receipt", label: "Total Spent", value: totalSpent, valueColor: "text-orange-600", subtext: "Cumulative expenditure across all ledger accounts." },
-            { icon: "fa-solid fa-piggy-bank", label: "Remaining", value: remaining, valueColor: remaining >= 0 ? "text-green-600" : "text-error", subtext: "Budget remaining for the rest of the year." },
+            { icon: "fa-solid fa-wallet", label: t("budget.totalAnnualBudget"), value: activeLocation.annualBudget, valueColor: "text-primary", subtext: t("budget.totalAnnualSubtext") },
+            { icon: "fa-solid fa-receipt", label: t("budget.totalSpent"), value: totalSpent, valueColor: "text-orange-600", subtext: t("budget.totalSpentSubtext") },
+            { icon: "fa-solid fa-piggy-bank", label: t("budget.remainingLabel"), value: remaining, valueColor: remaining >= 0 ? "text-green-600" : "text-error", subtext: t("budget.remainingSubtext") },
           ].map((kpi) => (
             <div
               key={kpi.label}
@@ -181,19 +184,19 @@ export default function BudgetView() {
         {/* Header */}
         {isMonthly ? (
           <div className="grid grid-cols-[1fr_150px_150px_180px_140px] bg-muted px-sp-16 py-sp-8 text-xs font-semibold text-muted-foreground uppercase">
-            <span>Ledger Account</span>
-            <span className="text-right">Monthly Budget</span>
-            <span className="text-right">Spent (April)</span>
-            <span className="text-right pr-sp-8">Pacing (%)</span>
-            <span className="text-right">Action</span>
+            <span>{t("budget.colLedgerAccount")}</span>
+            <span className="text-right">{t("budget.colMonthlyBudget")}</span>
+            <span className="text-right">{t("budget.colSpentApril")}</span>
+            <span className="text-right pr-sp-8">{t("budget.colPacing")}</span>
+            <span className="text-right">{t("budget.colAction")}</span>
           </div>
         ) : (
           <div className="grid grid-cols-[1fr_150px_150px_150px_180px] bg-muted px-sp-16 py-sp-8 text-xs font-semibold text-muted-foreground uppercase">
-            <span>Ledger Account</span>
-            <span className="text-right">Allocated</span>
-            <span className="text-right">Spent</span>
-            <span className="text-right">Remaining</span>
-            <span className="text-right pr-sp-8">Utilization %</span>
+            <span>{t("budget.colLedgerAccount")}</span>
+            <span className="text-right">{t("budget.colAllocated")}</span>
+            <span className="text-right">{t("budget.colSpent")}</span>
+            <span className="text-right">{t("budget.colRemaining")}</span>
+            <span className="text-right pr-sp-8">{t("budget.colUtilization")}</span>
           </div>
         )}
 
@@ -230,9 +233,9 @@ export default function BudgetView() {
                       const ms = getMonthlySpent(sl);
                       return Math.round((ms / mb) * 100) > 100;
                     }) && (
-                      <Tooltip text="One or more sub-accounts exceed budget" side="left">
+                      <Tooltip text={t("budget.overrunTooltip")} side="left">
                         <span>
-                          <Badge colorScheme="error" label={`${cat.subLedgers.filter((sl) => { const mb = getMonthlyBudget(sl.budget); const ms = getMonthlySpent(sl); return Math.round((ms / mb) * 100) > 100; }).length} overrun`} />
+                          <Badge colorScheme="error" label={t("budget.overrun", { count: cat.subLedgers.filter((sl) => { const mb = getMonthlyBudget(sl.budget); const ms = getMonthlySpent(sl); return Math.round((ms / mb) * 100) > 100; }).length })} />
                         </span>
                       </Tooltip>
                     )}
@@ -291,7 +294,7 @@ export default function BudgetView() {
                             }}
                           >
                             <i className="fa-solid fa-gavel mr-sp-4" aria-hidden="true" />
-                            Intervene
+                            {t("budget.intervene")}
                           </Button>
                         )}
                       </div>
@@ -382,7 +385,7 @@ export default function BudgetView() {
         open={interventionOpen}
         onOpenChange={setInterventionOpen}
         size="lg"
-        title="Budget Overrun: Recreation"
+        title={t("budget.interventionTitle")}
         icon={<i className="fa-solid fa-triangle-exclamation text-error" aria-hidden="true" />}
         body={
           <div className="space-y-sp-24">
@@ -391,8 +394,8 @@ export default function BudgetView() {
               <div className="flex items-start gap-sp-12">
                 <i className="fa-solid fa-robot text-info mt-0.5" aria-hidden="true" />
                 <div className="text-sm text-foreground">
-                  <p className="font-semibold mb-sp-4">AI Analysis</p>
-                  <p>Budget is depleting 25% faster than expected. Primary driver: High volume of small transactions under <span className="font-mono font-semibold">POL-2026-041</span> (Emergency Ward Supplies).</p>
+                  <p className="font-semibold mb-sp-4">{t("budget.aiAnalysis")}</p>
+                  <p dangerouslySetInnerHTML={{ __html: t("budget.aiAnalysisText") }} />
                 </div>
               </div>
             </div>
@@ -401,8 +404,8 @@ export default function BudgetView() {
             <div className="border border-border rounded-lg p-sp-16">
               <div className="flex items-start justify-between gap-sp-16">
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-foreground mb-sp-4">Option A: Lower limit</p>
-                  <p className="text-sm text-muted-foreground">Lower the limit of POL-2026-041 from €50 to €25 for the remainder of the month.</p>
+                  <p className="text-sm font-semibold text-foreground mb-sp-4">{t("budget.optionATitle")}</p>
+                  <p className="text-sm text-muted-foreground">{t("budget.optionADesc")}</p>
                 </div>
                 <Switch checked={optionA} onCheckedChange={setOptionA} />
               </div>
@@ -412,8 +415,8 @@ export default function BudgetView() {
             <div className="border border-border rounded-lg p-sp-16">
               <div className="flex items-start justify-between gap-sp-16">
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-foreground mb-sp-4">Option B: Require approval</p>
-                  <p className="text-sm text-muted-foreground">Require approval from Jolanda for all purchases in this category until the budget resets.</p>
+                  <p className="text-sm font-semibold text-foreground mb-sp-4">{t("budget.optionBTitle")}</p>
+                  <p className="text-sm text-muted-foreground">{t("budget.optionBDesc")}</p>
                 </div>
                 <Switch checked={optionB} onCheckedChange={setOptionB} />
               </div>
@@ -422,14 +425,14 @@ export default function BudgetView() {
         }
         footer={
           <>
-            <Button variant="ghost" onClick={() => setInterventionOpen(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setInterventionOpen(false)}>{t("common.cancel")}</Button>
             <Button
               variant="solid"
               colorScheme="primary"
               disabled={!optionA && !optionB}
               onClick={handleApplyIntervention}
             >
-              Apply Policy Change
+              {t("budget.applyPolicyChange")}
             </Button>
           </>
         }

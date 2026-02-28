@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,14 +16,6 @@ import OnboardingModal from "@/components/OnboardingModal";
 
 type FilterKey = "all" | "active" | "conflict" | "review" | "draft";
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "active", label: "Active" },
-  { key: "draft", label: "Drafts" },
-  { key: "conflict", label: "Conflicts" },
-  { key: "review", label: "Needs Review" },
-];
-
 /* ------------------------------------------------------------------ */
 /*  Ledger options for AFAS mapping dropdown                           */
 /* ------------------------------------------------------------------ */
@@ -38,8 +31,17 @@ const ledgerOptions = mockLedger.flatMap((cat) =>
 /* ------------------------------------------------------------------ */
 
 export default function PolicyHubView() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
+
+  const FILTERS: { key: FilterKey; label: string }[] = [
+    { key: "all", label: t("policyHub.filterAll") },
+    { key: "active", label: t("policyHub.filterActive") },
+    { key: "draft", label: t("policyHub.filterDrafts") },
+    { key: "conflict", label: t("policyHub.filterConflicts") },
+    { key: "review", label: t("policyHub.filterNeedsReview") },
+  ];
   const { policies, isLoading, updatePolicy } = usePolicies();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -53,9 +55,9 @@ export default function PolicyHubView() {
     try {
       await resetPoliciesTable();
       queryClient.invalidateQueries({ queryKey: ["policies"] });
-      toast.success("All policies removed.");
+      toast.success(t("policyHub.allRemoved"));
     } catch {
-      toast.error("Failed to remove policies.");
+      toast.error(t("policyHub.removeFailed"));
     } finally {
       setRemoving(false);
     }
@@ -68,9 +70,9 @@ export default function PolicyHubView() {
     try {
       const count = await populateBenchmarks();
       queryClient.invalidateQueries({ queryKey: ["policies"] });
-      toast.success(`Benchmarked ${count} policies against sector standards.`);
+      toast.success(t("policyHub.benchmarked", { count }));
     } catch {
-      toast.error("Failed to run benchmarks.");
+      toast.error(t("policyHub.benchmarkFailed"));
     } finally {
       setBenchmarking(false);
     }
@@ -119,7 +121,7 @@ export default function PolicyHubView() {
       changes.ledger = draft.afasCode ? String(draft.afasCode) : "";
     }
     updatePolicy(selectedPolicy.id, changes);
-    toast.success("Policy updated.");
+    toast.success(t("policyHub.policyUpdated"));
   };
 
   /* Filtering & search */
@@ -184,10 +186,10 @@ export default function PolicyHubView() {
   /* Status badge helper */
   const statusBadge = (status: Policy["status"]) => {
     const map: Record<Policy["status"], { label: string; color: "success" | "error" | "neutral" | "warning" }> = {
-      active: { label: "Active", color: "success" },
-      conflict: { label: "Conflict", color: "error" },
-      deprecated: { label: "Deprecated", color: "neutral" },
-      draft: { label: "Draft", color: "warning" },
+      active: { label: t("policyHub.statusActive"), color: "success" },
+      conflict: { label: t("policyHub.statusConflict"), color: "error" },
+      deprecated: { label: t("policyHub.statusDeprecated"), color: "neutral" },
+      draft: { label: t("policyHub.statusDraft"), color: "warning" },
     };
     const { label, color } = map[status];
     return <Badge status colorScheme={color} label={label} />;
@@ -197,8 +199,8 @@ export default function PolicyHubView() {
     <div className="relative space-y-sp-24">
       {/* ---- Header ---- */}
       <PageHeader
-        title="Policy Hub"
-        subtitle="Manage, benchmark, and resolve conflicts for all atomic policies."
+        title={t("policyHub.title")}
+        subtitle={t("policyHub.subtitle")}
         icon="fa-solid fa-book"
       />
 
@@ -210,7 +212,7 @@ export default function PolicyHubView() {
           onClick={() => setOnboardingOpen(true)}
         >
           <i className="fa-solid fa-file-arrow-up" aria-hidden="true" />
-          Add New Document
+          {t("policyHub.addDocument")}
         </Button>
         <Button
           variant="outline"
@@ -219,7 +221,7 @@ export default function PolicyHubView() {
           onClick={handleBenchmark}
         >
           <i className="fa-solid fa-chart-bar" aria-hidden="true" />
-          {benchmarking ? "Benchmarking\u2026" : "Benchmark"}
+          {benchmarking ? t("policyHub.benchmarking") : t("policyHub.benchmark")}
         </Button>
         <Button
           variant="outline"
@@ -228,7 +230,7 @@ export default function PolicyHubView() {
           onClick={handleRemoveAll}
         >
           <i className="fa-solid fa-trash-can" aria-hidden="true" />
-          {removing ? "Removing\u2026" : "Remove All Policies"}
+          {removing ? t("policyHub.removing") : t("policyHub.removeAll")}
         </Button>
       </div>
 
@@ -244,7 +246,7 @@ export default function PolicyHubView() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search policies, ledgers, or keywords..."
+          placeholder={t("policyHub.searchPlaceholder")}
           leadingIcon={<i className="fa-solid fa-magnifying-glass" aria-hidden="true" />}
         />
       </div>
@@ -268,46 +270,46 @@ export default function PolicyHubView() {
         rowKey="id"
         sort={sort}
         onSortChange={setSort}
-        emptyMessage="No policies match your criteria."
+        emptyMessage={t("policyHub.emptyMessage")}
         onRowClick={(row) => setSelectedId(row.id)}
         rowClassName={(row) => selectedId === row.id ? "!bg-blue-50 dark:!bg-grey-800" : ""}
         columns={[
           {
             key: "id",
-            label: "Policy ID",
+            label: t("policyHub.colPolicyId"),
             sortable: true,
             cell: (row) => <span className="font-mono">{row.id}</span>,
           },
           {
             key: "name",
-            label: "Name",
+            label: t("policyHub.colName"),
             sortable: true,
             cell: (row) => <span className="font-semibold">{row.name}</span>,
           },
           {
             key: "category",
-            label: "Category",
+            label: t("policyHub.colCategory"),
             sortable: true,
             cell: (row) => <span className="text-muted-foreground">{row.category}</span>,
           },
           {
             key: "status",
-            label: "Status",
+            label: t("policyHub.colStatus"),
             cell: (row) => statusBadge(row.status),
           },
           {
             key: "maxAmount",
-            label: "Max Amount",
+            label: t("policyHub.colMaxAmount"),
             cell: (row) => <span className="text-muted-foreground">{row.maxAmount || "—"}</span>,
           },
           {
             key: "friction",
-            label: "Friction",
+            label: t("policyHub.colFriction"),
             cell: (row) => <span className="text-muted-foreground">{row.friction}</span>,
           },
           {
             key: "benchmarkScore",
-            label: "Benchmark",
+            label: t("policyHub.colBenchmark"),
             cell: (row) =>
               row.benchmarkScore ? (
                 <span className="inline-flex items-center gap-sp-4">
@@ -324,7 +326,7 @@ export default function PolicyHubView() {
           },
           {
             key: "endDate",
-            label: "End Date",
+            label: t("policyHub.colEndDate"),
             sortable: true,
             cell: (row) => <span className="text-muted-foreground">{row.endDate || "—"}</span>,
           },
@@ -362,17 +364,17 @@ export default function PolicyHubView() {
             {selectedPolicy.status === "draft" && (
               <div className="rounded-lg border border-warning/30 bg-warning/10 p-sp-16">
                 <p className="text-sm font-semibold text-warning mb-sp-8">
-                  📄 Draft Policy
+                  {t("policyHub.draftPolicy")}
                 </p>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  This policy was parsed from uploaded documents and is ready for review.
+                  {t("policyHub.draftPolicyDesc")}
                 </p>
                 <Button
                   variant="outline"
                   className="mt-sp-12"
                   onClick={() => activatePolicy(selectedPolicy.id)}
                 >
-                  Activate Policy
+                  {t("policyHub.activatePolicy")}
                 </Button>
               </div>
             )}
@@ -384,7 +386,7 @@ export default function PolicyHubView() {
               return (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-sp-16 dark:border-blue-800 dark:bg-blue-950">
                   <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-sp-4">
-                    💡 Industry Insight
+                    {t("policyHub.industryInsight")}
                   </p>
                   <p className="text-xs text-blue-600 dark:text-blue-400 mb-sp-8">
                     {selectedPolicy.benchmarkScore}
@@ -402,11 +404,11 @@ export default function PolicyHubView() {
                           benchmarkScore: insight.standardBenchmark!,
                           benchmarkWarning: false,
                         });
-                        toast.success(`Limit updated to ${insight.standardAmount}.`);
+                        toast.success(t("policyHub.limitUpdated", { amount: insight.standardAmount }));
                       }}
                     >
                       <i className="fa-solid fa-arrow-trend-up" aria-hidden="true" />
-                      Update to Standard
+                      {t("policyHub.updateToStandard")}
                     </Button>
                   )}
                 </div>
@@ -415,24 +417,24 @@ export default function PolicyHubView() {
 
             {/* ---- Policy Rules Editor ---- */}
             <section className="pt-sp-8">
-              <h3 className="font-semibold text-sm text-foreground mb-sp-12">Policy Rules</h3>
+              <h3 className="font-semibold text-sm text-foreground mb-sp-12">{t("policyHub.policyRules")}</h3>
               <div className="flex flex-col gap-sp-12">
                 <div>
-                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">Intent</label>
+                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">{t("policyHub.labelIntent")}</label>
                   <Input
                     value={draft.intent}
                     onChange={(e) => setDraft((d) => ({ ...d, intent: e.target.value }))}
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">Max Amount</label>
+                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">{t("policyHub.labelMaxAmount")}</label>
                   <Input
                     value={draft.maxAmount}
                     onChange={(e) => setDraft((d) => ({ ...d, maxAmount: e.target.value }))}
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">Allowed Categories</label>
+                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">{t("policyHub.labelAllowedCategories")}</label>
                   <Input static value={selectedPolicy.allowedCategories} readOnly />
                 </div>
               </div>
@@ -440,22 +442,22 @@ export default function PolicyHubView() {
 
             {/* ---- AFAS Mapping ---- */}
             <section className="pt-sp-8">
-              <h3 className="font-semibold text-sm text-foreground mb-sp-12">AFAS Mapping</h3>
-              <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">Ledger Account</label>
+              <h3 className="font-semibold text-sm text-foreground mb-sp-12">{t("policyHub.afasMapping")}</h3>
+              <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">{t("policyHub.labelLedger")}</label>
               <Select
                 items={ledgerOptions}
                 value={draft.afasCode ? String(draft.afasCode) : undefined}
-                placeholder="Select ledger..."
+                placeholder={t("policyHub.selectLedger")}
                 onValueChange={(val) => setDraft((d) => ({ ...d, afasCode: Number(val) }))}
               />
             </section>
 
             {/* ---- Lifecycle Management ---- */}
             <section className="pt-sp-8">
-              <h3 className="font-semibold text-sm text-foreground mb-sp-12">Lifecycle</h3>
+              <h3 className="font-semibold text-sm text-foreground mb-sp-12">{t("policyHub.lifecycle")}</h3>
               <div className="grid grid-cols-2 gap-sp-12">
                 <div>
-                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">Start Date</label>
+                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">{t("policyHub.labelStartDate")}</label>
                   <Input
                     type="date"
                     value={draft.startDate}
@@ -463,7 +465,7 @@ export default function PolicyHubView() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">End Date</label>
+                  <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">{t("policyHub.labelEndDate")}</label>
                   <Input
                     type="date"
                     value={draft.endDate}
@@ -481,7 +483,7 @@ export default function PolicyHubView() {
                 onClick={handleSave}
               >
                 <i className="fa-solid fa-floppy-disk" aria-hidden="true" />
-                Update Policy
+                {t("policyHub.updatePolicy")}
               </Button>
               {selectedPolicy.status !== "deprecated" && (
                 <Button
@@ -491,7 +493,7 @@ export default function PolicyHubView() {
                   onClick={() => deprecatePolicy(selectedPolicy.id)}
                 >
                   <i className="fa-solid fa-ban mr-sp-8" aria-hidden="true" />
-                  Deprecate Policy
+                  {t("policyHub.deprecatePolicy")}
                 </Button>
               )}
             </section>

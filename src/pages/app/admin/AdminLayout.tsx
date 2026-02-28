@@ -1,15 +1,18 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { label: "Policy Hub", icon: "fa-book", to: "/app/admin/policy-hub" },
-  { label: "Supervisor Validation", icon: "fa-clipboard-check", to: "/app/admin/validation" },
-  { label: "Budget Overview", icon: "fa-coins", to: "/app/admin/budget" },
-  { label: "Policy Health & Insights", icon: "fa-chart-line", to: "/app/admin/insights" },
-];
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export default function AdminLayout() {
   const location = useLocation();
+  const { t } = useTranslation();
+
+  const navItems = [
+    { label: t("adminLayout.nav.policyHub"), icon: "fa-book", to: "/app/admin/policy-hub" },
+    { label: t("adminLayout.nav.validation"), icon: "fa-clipboard-check", to: "/app/admin/validation" },
+    { label: t("adminLayout.nav.budget"), icon: "fa-coins", to: "/app/admin/budget" },
+    { label: t("adminLayout.nav.insights"), icon: "fa-chart-line", to: "/app/admin/insights" },
+  ];
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -57,15 +60,18 @@ export default function AdminLayout() {
             className="flex items-center gap-sp-8 text-xs text-muted-foreground hover:text-primary transition-colors"
           >
             <i className="fa-solid fa-mobile-screen text-sm" aria-hidden="true" />
-            Switch to Mobile View
+            {t("adminLayout.switchMobile")}
           </NavLink>
           <NavLink
             to="/app"
             className="flex items-center gap-sp-8 text-xs text-muted-foreground hover:text-primary transition-colors mt-sp-8"
           >
             <i className="fa-solid fa-arrow-right-from-bracket text-sm" aria-hidden="true" />
-            Role Switcher
+            {t("adminLayout.roleSwitcher")}
           </NavLink>
+          <div className="mt-sp-8">
+            <LanguageSwitcher />
+          </div>
         </div>
       </aside>
 

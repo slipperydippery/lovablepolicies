@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,75 +8,69 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 
-const PROCESSING_STEPS = [
-  "Reading documents...",
-  "Extracting purchasing rules...",
-  "Mapping to AFAS ledgers...",
-  "Detecting conflicts...",
-];
-
-const kpiCards = [
-  {
-    icon: "fa-solid fa-bolt",
-    label: "Straight-Through Processing (STP)",
-    value: "88%",
-    valueColor: "text-green-600",
-    subtext: "Purchases auto-approved & AFAS-coded via AI this month.",
-  },
-  {
-    icon: "fa-solid fa-clock",
-    label: "Finance Hours Reclaimed",
-    value: "42 Hours",
-    valueColor: "text-primary",
-    subtext: "Saved by eliminating manual ledger coding and follow-ups.",
-  },
-  {
-    icon: "fa-solid fa-robot",
-    label: "AI Fallbacks",
-    value: "12 Instances",
-    valueColor: "text-orange-600",
-    subtext: "Queries where AI could not find a relevant policy. (Requires Review)",
-  },
-];
-
 const questionedPoliciesData = [
   {
     name: "Travel Reimbursement",
     code: "POL-2022-12",
     questions: 45,
-    friction: "High Friction" as const,
+    frictionKey: "insights.frictionHigh" as const,
     badgeColor: "error" as const,
   },
   {
     name: "Incontinence Material Standard",
     code: "POL-2024-05",
     questions: 28,
-    friction: "Moderate Friction" as const,
+    frictionKey: "insights.frictionModerate" as const,
     badgeColor: "warning" as const,
   },
 ];
 
 export default function InsightsView() {
+  const { t } = useTranslation();
   const [acknowledged, setAcknowledged] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [shadowModalOpen, setShadowModalOpen] = useState(false);
   const [shadowOrderResolved, setShadowOrderResolved] = useState(false);
   const [travelResolved, setTravelResolved] = useState(false);
   const [suggestedText, setSuggestedText] = useState(
-    "Parking fees incurred during direct client transport (e.g., hospital visits) are fully reimbursable. A receipt is required."
+    t("insights.suggestedText")
   );
+
+  const kpiCards = [
+    {
+      icon: "fa-solid fa-bolt",
+      label: t("insights.stp"),
+      value: t("insights.stpValue"),
+      valueColor: "text-green-600",
+      subtext: t("insights.stpSubtext"),
+    },
+    {
+      icon: "fa-solid fa-clock",
+      label: t("insights.hoursReclaimed"),
+      value: t("insights.hoursValue"),
+      valueColor: "text-primary",
+      subtext: t("insights.hoursSubtext"),
+    },
+    {
+      icon: "fa-solid fa-robot",
+      label: t("insights.aiFallbacks"),
+      value: t("insights.aiFallbacksValue"),
+      valueColor: "text-orange-600",
+      subtext: t("insights.aiFallbacksSubtext"),
+    },
+  ];
 
   const questionedPolicies = questionedPoliciesData.map((p) =>
     p.code === "POL-2022-12" && travelResolved
-      ? { ...p, questions: 0, friction: "Resolved" as const, badgeColor: "success" as const }
+      ? { ...p, questions: 0, frictionKey: "insights.frictionResolved" as const, badgeColor: "success" as const }
       : p
   );
 
   return (
     <div className="space-y-sp-24">
       <PageHeader
-        title="Policy Health & Insights"
-        subtitle="Proactive command center for monitoring policy effectiveness, friction points, and meaningful exceptions."
+        title={t("insights.title")}
+        subtitle={t("insights.subtitle")}
         icon="fa-solid fa-chart-line"
       />
 
@@ -104,7 +99,7 @@ export default function InsightsView() {
         <div className="bg-card border border-border rounded-lg p-sp-24 flex flex-col gap-sp-16">
           <div className="flex items-center gap-sp-8 text-text-primary font-semibold text-sm">
             <i className="fa-solid fa-fire text-orange-600" aria-hidden="true" />
-            Most Questioned Policies
+            {t("insights.mostQuestioned")}
           </div>
 
           <div className="flex flex-col gap-sp-12">
@@ -119,18 +114,18 @@ export default function InsightsView() {
                     <span className="font-normal text-text-secondary">({policy.code})</span>
                   </span>
                   <span className="text-xs text-text-secondary">
-                    {policy.questions} questions this week
+                    {t("insights.questionsThisWeek", { count: policy.questions })}
                   </span>
                 </div>
                 <div className="flex items-center gap-sp-8">
-                  <Badge colorScheme={policy.badgeColor} label={policy.friction} />
+                  <Badge colorScheme={policy.badgeColor} label={t(policy.frictionKey)} />
                   {idx === 0 && (
                     <Button
                       variant="outline"
                       className="text-xs h-8"
                       onClick={() => setReviewModalOpen(true)}
                     >
-                      Review & Clarify Policy
+                      {t("insights.reviewClarify")}
                     </Button>
                   )}
                 </div>
@@ -143,7 +138,7 @@ export default function InsightsView() {
         <div className="bg-card border border-border rounded-lg p-sp-24 flex flex-col gap-sp-16">
           <div className="flex items-center gap-sp-8 text-text-primary font-semibold text-sm">
             <i className="fa-solid fa-comments text-primary" aria-hidden="true" />
-            On-the-Ground Feedback
+            {t("insights.onTheGroundFeedback")}
           </div>
 
           <div
@@ -153,27 +148,26 @@ export default function InsightsView() {
           >
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-text-primary">
-                From: Anouk <span className="font-normal text-text-secondary">(De Veldkeur)</span>
+                {t("insights.from")} <span className="font-normal text-text-secondary">{t("insights.fromLocation")}</span>
               </span>
-              {acknowledged && <Badge colorScheme="success" label="Acknowledged" />}
+              {acknowledged && <Badge colorScheme="success" label={t("insights.acknowledged")} />}
             </div>
-            <span className="text-xs text-text-secondary">Tagged Policy: POL-2023-088</span>
+            <span className="text-xs text-text-secondary">{t("insights.taggedPolicy")}</span>
             <p className="text-sm text-text-primary italic leading-relaxed">
-              "The standard supplier is always out of stock on weekends, forcing us to use
-              exceptions to buy at Blokker."
+              {t("insights.feedbackQuote")}
             </p>
             {!acknowledged && (
               <div className="flex items-center gap-sp-8">
                 <Button variant="outline" className="text-xs h-8" onClick={() => setAcknowledged(true)}>
-                  Acknowledge
+                  {t("insights.acknowledge")}
                 </Button>
                 <Button
                   className="text-xs h-8"
                   onClick={() =>
-                    toast.info("A policy amendment draft for POL-2023-088 has been created.")
+                    toast.info(t("insights.amendmentCreated"))
                   }
                 >
-                  Draft Policy Amendment
+                  {t("insights.draftAmendment")}
                 </Button>
               </div>
             )}
@@ -186,17 +180,16 @@ export default function InsightsView() {
         <div className="bg-card border border-border rounded-lg p-sp-24 flex flex-col gap-sp-16">
           <div className="flex items-center gap-sp-8 text-text-primary font-semibold text-sm">
             <i className="fa-solid fa-triangle-exclamation text-orange-600" aria-hidden="true" />
-            Pending Meaningful Exceptions (Action Required)
+            {t("insights.pendingExceptions")}
           </div>
 
           <div className="flex items-center justify-between border border-border rounded-md p-sp-16">
             <div className="flex items-center gap-sp-12">
               <i className="fa-solid fa-circle-exclamation text-orange-600 text-lg" aria-hidden="true" />
               <div className="flex flex-col gap-sp-4">
-                <span className="text-sm font-semibold text-text-primary">Shadow Order Detected</span>
+                <span className="text-sm font-semibold text-text-primary">{t("insights.shadowOrder")}</span>
                 <span className="text-xs text-text-secondary">
-                  Unregistered supplier used by Team Veldkeur for €200 medical device. Reason: Resident
-                  safety.
+                  {t("insights.shadowOrderDesc")}
                 </span>
               </div>
             </div>
@@ -205,7 +198,7 @@ export default function InsightsView() {
               className="text-xs h-8 shrink-0"
               onClick={() => setShadowModalOpen(true)}
             >
-              Review 3-Way Match Failure
+              {t("insights.reviewThreeWay")}
             </Button>
           </div>
         </div>
@@ -215,34 +208,33 @@ export default function InsightsView() {
       <Modal
         open={reviewModalOpen}
         onOpenChange={setReviewModalOpen}
-        title="Clarify Policy: Travel Reimbursement (POL-2022-12)"
+        title={t("insights.clarifyTitle")}
         icon={<i className="fa-solid fa-magnifying-glass-chart" aria-hidden="true" />}
         size="xl"
         body={
           <div className="flex flex-col gap-sp-24">
             {/* AI Analysis */}
             <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-sp-16 flex flex-col gap-sp-8">
-              <span className="text-sm font-semibold text-indigo-800">✨ AI Confusion Analysis</span>
+              <span className="text-sm font-semibold text-indigo-800">{t("insights.aiConfusionAnalysis")}</span>
               <p className="text-sm text-indigo-700 leading-relaxed">
-                Based on 45 chat queries this week, 78% of care workers are asking if hospital parking fees
-                are reimbursed when transporting a client, or if they are included in the €0.21/km flat rate.
+                {t("insights.aiConfusionText")}
               </p>
             </div>
 
             {/* Policy Amendment */}
             <div className="flex flex-col gap-sp-16">
-              <span className="text-sm font-semibold text-foreground">Policy Amendment</span>
+              <span className="text-sm font-semibold text-foreground">{t("insights.policyAmendment")}</span>
 
               <div className="flex flex-col gap-sp-8">
-                <label className="text-xs font-semibold text-text-secondary">Current Rule</label>
+                <label className="text-xs font-semibold text-text-secondary">{t("insights.currentRule")}</label>
                 <Input
-                  value="Travel is reimbursed at €0.21/km. Commuting is excluded."
+                  value={t("insights.currentRuleValue")}
                   disabled
                 />
               </div>
 
               <div className="flex flex-col gap-sp-8">
-                <label className="text-xs font-semibold text-text-secondary">AI Suggested Addition</label>
+                <label className="text-xs font-semibold text-text-secondary">{t("insights.aiSuggestedAddition")}</label>
                 <Textarea
                   value={suggestedText}
                   onChange={(e) => setSuggestedText(e.target.value)}
@@ -255,16 +247,16 @@ export default function InsightsView() {
         footer={
           <>
             <Button variant="outline" onClick={() => setReviewModalOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={() => {
                 setReviewModalOpen(false);
                 setTravelResolved(true);
-                toast.success("Policy Updated. Care workers will now be automatically guided on parking fees.");
+                toast.success(t("insights.policyUpdated"));
               }}
             >
-              Update Atomic Policy
+              {t("insights.updateAtomicPolicy")}
             </Button>
           </>
         }
@@ -274,43 +266,36 @@ export default function InsightsView() {
       <Modal
         open={shadowModalOpen}
         onOpenChange={setShadowModalOpen}
-        title="Resolve Shadow Order: Unregistered Supplier"
+        title={t("insights.shadowModalTitle")}
         icon={<i className="fa-solid fa-file-invoice-dollar" aria-hidden="true" />}
         size="2xl"
         body={
           <div className="flex flex-col gap-sp-16">
             {/* Invoice context */}
-            <p className="text-sm text-text-secondary leading-relaxed">
-              An invoice from <span className="font-medium text-text-primary">Medipoint Lokaal</span> (unregistered) for a Specialized Shower Chair at €200.00 has no matching PO or goods receipt in AFAS.
-            </p>
+            <p className="text-sm text-text-secondary leading-relaxed" dangerouslySetInnerHTML={{ __html: t("insights.shadowInvoice") }} />
 
             {/* AI Evidence */}
             <div className="rounded-lg border border-border p-sp-16 flex flex-col gap-sp-12">
               <div className="flex items-center gap-sp-8">
                 <span className="inline-flex items-center gap-sp-4 rounded-full bg-green-50 dark:bg-green-900/30 px-sp-8 py-1 text-xs font-medium text-green-700 dark:text-green-300">
                   <i className="fa-solid fa-sparkles text-[10px]" aria-hidden="true" />
-                  98% Match
+                  {t("insights.matchConfidence")}
                 </span>
-                <span className="text-sm text-text-secondary">
-                  Linked to <span className="font-medium text-text-primary">Anouk</span> at De VeldKeur
-                </span>
+                <span className="text-sm text-text-secondary" dangerouslySetInnerHTML={{ __html: t("insights.linkedTo") }} />
               </div>
 
               <blockquote className="border-l-2 border-grey-300 dark:border-grey-600 pl-sp-12 py-sp-4">
                 <p className="text-sm italic text-text-secondary leading-relaxed">
-                  "Kersten Hulpmiddelen has a 2-week delay. Resident is being discharged today.
-                  I am buying the chair locally to ensure patient safety."
+                  {t("insights.chatQuote")}
                 </p>
                 <cite className="text-xs text-text-tertiary not-italic mt-sp-4 block">
-                  — Chat log, Tuesday
+                  {t("insights.chatLogDate")}
                 </cite>
               </blockquote>
 
               <div className="flex items-center gap-sp-8 pt-sp-8 border-t border-border">
                 <i className="fa-solid fa-book text-text-tertiary text-xs" aria-hidden="true" />
-                <span className="text-sm text-text-secondary">
-                  Suggested coding: <span className="font-medium text-text-primary">3. CARE & TREATMENT → Medical Aids</span>
-                </span>
+                <span className="text-sm text-text-secondary" dangerouslySetInnerHTML={{ __html: t("insights.suggestedCoding") }} />
               </div>
             </div>
           </div>
@@ -318,18 +303,18 @@ export default function InsightsView() {
         footer={
           <>
             <Button variant="outline" onClick={() => setShadowModalOpen(false)}>
-              Reject & Request Justification
+              {t("insights.rejectJustification")}
             </Button>
             <Button
               colorScheme="success"
               onClick={() => {
                 setShadowModalOpen(false);
                 setShadowOrderResolved(true);
-                toast.success("Retrospective PO created. Coded to Medical Aids. Invoice cleared for payment.");
+                toast.success(t("insights.retroSuccess"));
               }}
             >
               <i className="fa-solid fa-check" aria-hidden="true" />
-              Retroactively Create PO & Approve
+              {t("insights.retroPO")}
             </Button>
           </>
         }

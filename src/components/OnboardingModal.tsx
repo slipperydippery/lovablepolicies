@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/modal";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Button } from "@/components/ui/button";
@@ -14,13 +15,6 @@ import {
 
 type Phase = "upload" | "processing" | "results";
 
-const PROCESSING_STEPS = [
-  "Reading documents...",
-  "Extracting purchasing rules...",
-  "Mapping to AFAS ledgers...",
-  "Detecting conflicts...",
-];
-
 interface OnboardingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,6 +22,15 @@ interface OnboardingModalProps {
 }
 
 export default function OnboardingModal({ open, onOpenChange, onActivated }: OnboardingModalProps) {
+  const { t } = useTranslation();
+
+  const PROCESSING_STEPS = [
+    t("onboarding.readingDocs"),
+    t("onboarding.extractingRules"),
+    t("onboarding.mappingAfas"),
+    t("onboarding.detectingConflicts"),
+  ];
+
   const [phase, setPhase] = useState<Phase>("upload");
   const [files, setFiles] = useState<File[]>([]);
   const [processingStep, setProcessingStep] = useState(0);
@@ -92,11 +95,11 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         Object.entries(resolvedConflicts).filter(([, v]) => v != null)
       ) as Record<string, number>;
       const count = await upsertPolicies(READY_POLICIES, CONFLICT_POLICIES, resolved);
-      toast.success(`${count} policies activated and synced to AFAS!`);
+      toast.success(t("onboarding.activated", { count }));
       onOpenChange(false);
       onActivated();
     } catch {
-      toast.error("Failed to activate policies.");
+      toast.error(t("onboarding.activateFailed"));
     } finally {
       setActivating(false);
     }
@@ -111,7 +114,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         multiple
         accept=".pdf,.txt"
         filesLayout="list"
-        description="PDF or TXT files up to 50 MB"
+        description={t("onboarding.uploadDesc")}
       />
       <Button
         variant="solid"
@@ -121,7 +124,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         onClick={handleProcess}
       >
         <i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true" />
-        Process & Generate Atomic Policies
+        {t("onboarding.processGenerate")}
       </Button>
     </div>
   );
@@ -139,7 +142,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         {PROCESSING_STEPS[processingStep]}
       </p>
       <p className="text-xs text-muted-foreground">
-        Analyzing {files.length} document{files.length !== 1 ? "s" : ""}…
+        {t("onboarding.analyzing", { count: files.length })}
       </p>
     </div>
   );
@@ -149,7 +152,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
     <div className="space-y-sp-16 max-h-[60vh] overflow-y-auto">
       {/* Section: Conflicts */}
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-        Conflicts to Resolve ({CONFLICT_POLICIES.length})
+        {t("onboarding.conflictsToResolve", { count: CONFLICT_POLICIES.length })}
       </p>
 
       {CONFLICT_POLICIES.map((p) => {
@@ -185,9 +188,9 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
                     {p.id}: {p.name}
                   </h3>
                   {resolved ? (
-                    <Badge colorScheme="success" label={`Resolved — ${resolvedVal}`} />
+                    <Badge colorScheme="success" label={t("onboarding.resolved", { value: resolvedVal })} />
                   ) : (
-                    <Badge colorScheme="warning" label="Conflict Detected" />
+                    <Badge colorScheme="warning" label={t("onboarding.conflictDetected")} />
                   )}
                 </div>
 
@@ -275,7 +278,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
 
       {/* Section: Ready */}
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-sp-8">
-        Ready to Activate ({READY_POLICIES.length})
+        {t("onboarding.readyToActivate", { count: READY_POLICIES.length })}
       </p>
 
       {READY_POLICIES.map((p) => (
@@ -292,7 +295,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
                 <h3 className="text-sm font-semibold text-foreground">
                   {p.id}: {p.name}
                 </h3>
-                <Badge colorScheme="success" label="Ready" />
+                <Badge colorScheme="success" label={t("onboarding.ready")} />
               </div>
               <p className="text-xs text-muted-foreground">
                 {p.category} · {p.maxAmount} · AFAS {p.afasCode} · Friction: {p.friction}
@@ -312,17 +315,17 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
       >
         <i className="fa-solid fa-rocket" aria-hidden="true" />
         {activating
-          ? "Activating…"
-          : `Approve & Activate ${READY_POLICIES.length + CONFLICT_POLICIES.length} Policies`}
+          ? t("onboarding.activating")
+          : t("onboarding.activateCount", { count: READY_POLICIES.length + CONFLICT_POLICIES.length })}
       </Button>
     </div>
   );
 
   const phaseTitle = phase === "upload"
-    ? "Add New Document"
+    ? t("onboarding.addDocument")
     : phase === "processing"
-    ? "Processing Documents"
-    : "Review & Activate Policies";
+    ? t("onboarding.processingDocuments")
+    : t("onboarding.reviewActivate");
 
   return (
     <Modal

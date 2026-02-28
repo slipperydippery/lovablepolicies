@@ -34,7 +34,8 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, locationName } = await req.json();
+    const { messages, locationName, language } = await req.json();
+    const responseLang = language === "nl" ? "Dutch" : "English";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -90,7 +91,12 @@ IMPORTANT RULES:
 - At the very end of your response, add a marker listing every policy ID you referenced: [POLICIES:POL-ID-1,POL-ID-2] (e.g. [POLICIES:POL-2026-041,POL-2026-042]). If no policies were referenced, omit this marker entirely.
 - Do NOT mention policy IDs in the text itself — only put them in the [POLICIES:...] marker.
 - If a supplier is not on the approved list, note that but consider if an exception policy applies.
-- Always respond in English.`;
+- Always respond in **${responseLang}**.
+
+CROSS-LANGUAGE MATCHING:
+- Policies are stored in English. The user may ask questions in any language.
+- You MUST match policies semantically regardless of language. For example, a Dutch question about "luiers" should match "Incontinence Material" policies.
+- Always reason about the intent behind the question, not literal keyword matching.`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",

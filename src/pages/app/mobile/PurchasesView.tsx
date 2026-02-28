@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +14,13 @@ const historyItems = [
 ];
 
 export default function PurchasesView() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"deliveries" | "history">("deliveries");
   const [deliveryStatus, setDeliveryStatus] = useState<DeliveryStatus>("pending");
 
   const handleMarkReceived = () => {
     setDeliveryStatus("received");
-    toast.success("Package marked as received and logged!");
+    toast.success(t("purchases.packageReceived"));
     setTimeout(() => setDeliveryStatus("hidden"), 2000);
   };
 
@@ -38,7 +40,7 @@ export default function PurchasesView() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
-            {tab === "deliveries" ? "Pending Deliveries" : "History"}
+            {tab === "deliveries" ? t("purchases.pendingDeliveries") : t("purchases.history")}
           </button>
         ))}
       </div>
@@ -48,7 +50,7 @@ export default function PurchasesView() {
           deliveryStatus === "hidden" ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <i className="fa-solid fa-circle-check text-4xl text-green-500 mb-sp-12" aria-hidden="true" />
-              <p className="text-sm text-muted-foreground">All deliveries processed!</p>
+              <p className="text-sm text-muted-foreground">{t("purchases.allProcessed")}</p>
             </div>
           ) : (
             <div
@@ -62,30 +64,30 @@ export default function PurchasesView() {
               {deliveryStatus === "received" ? (
                 <div className="flex flex-col items-center py-sp-16 text-green-600 dark:text-green-400">
                   <i className="fa-solid fa-circle-check text-4xl mb-sp-8" aria-hidden="true" />
-                  <span className="text-lg font-semibold">Received & Logged</span>
+                  <span className="text-lg font-semibold">{t("purchases.receivedLogged")}</span>
                 </div>
               ) : (
                 <>
                   <div className="flex items-start justify-between mb-sp-12">
                     <div>
-                      <h3 className="text-sm font-semibold text-foreground">Special 5cm silicone bandages</h3>
-                      <p className="text-xs text-muted-foreground mt-sp-4">ABENA Healthcare BV</p>
+                      <h3 className="text-sm font-semibold text-foreground">{t("purchases.silicone")}</h3>
+                      <p className="text-xs text-muted-foreground mt-sp-4">{t("purchases.vendor")}</p>
                     </div>
-                    <Badge colorScheme="warning" status label="Expected Today" />
+                    <Badge colorScheme="warning" status label={t("purchases.expectedToday")} />
                   </div>
                   <div className="space-y-sp-4 mb-sp-16">
                     <div className="flex items-center gap-sp-8 text-xs text-muted-foreground">
                       <i className="fa-solid fa-location-dot w-4 text-center" aria-hidden="true" />
-                      <span>De VeldKeur Reception</span>
+                      <span>{t("purchases.reception")}</span>
                     </div>
                     <div className="flex items-center gap-sp-8 text-xs text-muted-foreground">
                       <i className="fa-solid fa-tag w-4 text-center" aria-hidden="true" />
-                      <span>Medical exception — allergy</span>
+                      <span>{t("purchases.medicalException")}</span>
                     </div>
                   </div>
                   <Button variant="solid" className="w-full h-12 text-base" onClick={handleMarkReceived}>
                     <i className="fa-solid fa-box-open mr-sp-8" aria-hidden="true" />
-                    Mark Package as Received
+                    {t("purchases.markReceived")}
                   </Button>
                 </>
               )}

@@ -64,10 +64,12 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 app.post("/api/chat", async (req: Request, res: Response) => {
   try {
-    const { messages, locationName } = req.body as {
+    const { messages, locationName, language } = req.body as {
       messages: { role: string; content: string }[];
       locationName: string;
+      language?: string;
     };
+    const responseLang = language === "nl" ? "Dutch" : "English";
 
     // Fetch active policies from Supabase
     const { data: policies } = await supabase
@@ -117,7 +119,12 @@ IMPORTANT RULES:
 - At the very end of your response, add a marker listing every policy ID you referenced: [POLICIES:POL-ID-1,POL-ID-2] (e.g. [POLICIES:POL-2026-041,POL-2026-042]). If no policies were referenced, omit this marker entirely.
 - Do NOT mention policy IDs in the text itself — only put them in the [POLICIES:...] marker.
 - If a supplier is not on the approved list, note that but consider if an exception policy applies.
-- Always respond in English.`;
+- Always respond in **${responseLang}**.
+
+CROSS-LANGUAGE MATCHING:
+- Policies are stored in English. The user may ask questions in any language.
+- You MUST match policies semantically regardless of language. For example, a Dutch question about "luiers" should match "Incontinence Material" policies.
+- Always reason about the intent behind the question, not literal keyword matching.`;
 
     // Convert messages: separate system from user/assistant
     const anthropicMessages = messages.map((m) => ({

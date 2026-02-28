@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,15 +39,6 @@ function renderFormattedText(text: string): ReactNode[] {
   });
 }
 
-/** Map internal friction levels to human-readable labels */
-function frictionLabel(friction: string): string {
-  switch (friction.toLowerCase()) {
-    case "low": return "No approval needed";
-    case "medium": return "Needs supervisor OK";
-    case "high": return "Requires management approval";
-    default: return friction;
-  }
-}
 
 /** Strip [REGISTER:xx.xx] markers and extract amount */
 function parseRegisterMarker(text: string): { clean: string; amount: number | undefined } {
@@ -76,12 +68,14 @@ const CHAT_URL = import.meta.env.VITE_CHAT_API_URL || `${import.meta.env.VITE_SU
 async function streamChat({
   messages,
   locationName,
+  language,
   onDelta,
   onDone,
   signal,
 }: {
   messages: { role: string; content: string }[];
   locationName: string;
+  language: string;
   onDelta: (text: string) => void;
   onDone: () => void;
   signal?: AbortSignal;
@@ -92,7 +86,7 @@ async function streamChat({
       "Content-Type": "application/json",
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
-    body: JSON.stringify({ messages, locationName }),
+    body: JSON.stringify({ messages, locationName, language }),
     signal,
   });
 
@@ -172,7 +166,7 @@ function useSpeechRecognition(onResult: (text: string) => void) {
     }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
-    rec.lang = "en-US";
+    rec.lang = "nl-NL";
     rec.interimResults = false;
     rec.onresult = (e: any) => {
       const text = e.results[0][0].transcript;
@@ -192,15 +186,25 @@ function useSpeechRecognition(onResult: (text: string) => void) {
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-const WELCOME: ChatMessage = {
-  id: "welcome",
-  role: "assistant",
-  content: "Hi Anouk! 👋 I'm your procurement assistant. Tell me what you need to buy — for example: *\"Can I buy diapers at Bol.com if I'm running low?\"*",
-  timestamp: timeNow(),
-};
-
 export default function ChatView() {
+  const { t, i18n } = useTranslation();
   const { activeLocation } = useActiveLocation();
+
+  const frictionLabel = (friction: string): string => {
+    switch (friction.toLowerCase()) {
+      case "low": return t("chat.frictionLow");
+      case "medium": return t("chat.frictionMedium");
+      case "high": return t("chat.frictionHigh");
+      default: return friction;
+    }
+  };
+
+  const WELCOME: ChatMessage = {
+    id: "welcome",
+    role: "assistant",
+    content: t("chat.welcome"),
+    timestamp: timeNow(),
+  };
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [inputValue, setInputValue] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -285,6 +289,7 @@ export default function ChatView() {
       await streamChat({
         messages: history,
         locationName: activeLocation.name,
+        language: i18n.language?.startsWith("nl") ? "nl" : "en",
         onDelta: upsert,
         onDone: () => {
           // Parse both markers from final text
@@ -308,7 +313,7 @@ export default function ChatView() {
     } catch (e: any) {
       if (e.name === "AbortError") return;
       console.error(e);
-      toast.error(e.message || "Failed to get AI response");
+      toast.error(e.message || t("chat.errorResponse"));
       setIsStreaming(false);
     }
   };
@@ -321,7 +326,7 @@ export default function ChatView() {
   const handleSubmitPurchase = () => {
     setShowRegisterSheet(false);
     setReceiptFile(null);
-    toast.success("Purchase submitted to Jolanda for review!");
+    toast.success(t("chat.purchaseSubmitted"));
   };
 
   return (
@@ -353,7 +358,7 @@ export default function ChatView() {
                 onClick={() => handleRegister(msg.registerAmount!)}
               >
                 <i className="fa-solid fa-receipt mr-sp-8" aria-hidden="true" />
-                Register this Purchase (€{msg.registerAmount.toFixed(2)})
+                {t("chat.registerPurchase", { amount: msg.registerAmount.toFixed(2) })}
               </Button>
             )}
             {/* Applied Policies collapsible */}
@@ -371,7 +376,7 @@ export default function ChatView() {
                     )}
                     aria-hidden="true"
                   />
-                  Based on {msg.appliedPolicies.length} {msg.appliedPolicies.length === 1 ? "policy" : "policies"}
+                  {t("chat.viewPolicies")}
                 </button>
                 {expandedPolicies[msg.id] && (
                   <div className="flex flex-col gap-sp-8 mt-sp-4">
@@ -398,7 +403,7 @@ export default function ChatView() {
                                 {pol.maxAmount && (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-grey-100 dark:bg-grey-700 px-2 py-0.5 text-[11px] text-muted-foreground">
                                     <i className="fa-solid fa-coins text-[9px]" aria-hidden="true" />
-                                    Max {pol.maxAmount}
+                                    {t("chat.policyMaxAmount")} {pol.maxAmount}
                                   </span>
                                 )}
                                 {pol.friction && (
@@ -463,7 +468,7 @@ export default function ChatView() {
           )}
           <input
             type="text"
-            placeholder="Type a message…"
+            placeholder={t("chat.inputPlaceholder")}
             className="flex-1 min-w-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none py-2 px-sp-8"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -512,16 +517,16 @@ export default function ChatView() {
 
             <div className="px-sp-24 pb-sp-24">
               <DialogPrimitive.Title className="text-lg font-semibold text-foreground mb-sp-16">
-                Register Purchase
+                {t("chat.registerSheet.title")}
               </DialogPrimitive.Title>
 
               <div className="space-y-sp-12 mb-sp-16">
                 <div className="rounded-lg bg-grey-50 dark:bg-grey-800 px-sp-16 py-sp-12">
-                  <span className="text-xs text-muted-foreground block mb-1">Amount</span>
+                  <span className="text-xs text-muted-foreground block mb-1">{t("chat.registerSheet.amount")}</span>
                   <span className="text-sm font-semibold text-foreground">€ {registerAmount.toFixed(2)}</span>
                 </div>
                 <div className="rounded-lg bg-grey-50 dark:bg-grey-800 px-sp-16 py-sp-12">
-                  <span className="text-xs text-muted-foreground block mb-1">Location</span>
+                  <span className="text-xs text-muted-foreground block mb-1">{t("budget.location")}</span>
                   <span className="text-sm font-semibold text-foreground">{activeLocation.name}</span>
                 </div>
               </div>
@@ -531,7 +536,7 @@ export default function ChatView() {
                   value={receiptFile}
                   onChange={(f) => setReceiptFile(f as File | null)}
                   accept="image/*"
-                  description="Upload a receipt or take a photo"
+                  description={t("chat.registerSheet.receipt")}
                   icon={
                     <div className="flex items-center justify-center w-12 h-12 rounded-full bg-grey-800 dark:bg-grey-700 text-white">
                       <i className="fa-solid fa-camera text-xl" aria-hidden="true" />
@@ -543,14 +548,14 @@ export default function ChatView() {
 
               <Button variant="solid" className="w-full mb-sp-8" onClick={handleSubmitPurchase}>
                 <i className="fa-solid fa-paper-plane mr-sp-8" aria-hidden="true" />
-                Submit for Supervisor Validation
+                {t("chat.registerSheet.submit")}
               </Button>
               <DialogPrimitive.Close asChild>
                 <button
                   type="button"
                   className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </DialogPrimitive.Close>
             </div>

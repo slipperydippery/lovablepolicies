@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
@@ -118,16 +119,17 @@ const initialExpenses: ExpenseItem[] = [
 
 // ── Status Badge ───────────────────────────────────────
 
-const statusConfig: Record<ExpenseStatus, { colorScheme: "warning" | "purple" | "success" | "error"; label: string }> = {
-  "ai-approved": { colorScheme: "warning", label: "AI-Approved · Pending" },
-  "manual-review": { colorScheme: "purple", label: "Manual Review" },
-  approved: { colorScheme: "success", label: "Approved" },
-  rejected: { colorScheme: "error", label: "Rejected" },
-};
-
 // ── Component ──────────────────────────────────────────
 
 export default function ValidationView() {
+  const { t } = useTranslation();
+
+  const statusConfig: Record<ExpenseStatus, { colorScheme: "warning" | "purple" | "success" | "error"; label: string }> = {
+    "ai-approved": { colorScheme: "warning", label: t("validation.statusAiApproved") },
+    "manual-review": { colorScheme: "purple", label: t("validation.statusManualReview") },
+    approved: { colorScheme: "success", label: t("validation.statusApproved") },
+    rejected: { colorScheme: "error", label: t("validation.statusRejected") },
+  };
   const [expenses, setExpenses] = useState<ExpenseItem[]>(initialExpenses);
   const [selected, setSelected] = useState<ExpenseItem | null>(null);
   const [policyModalOpen, setPolicyModalOpen] = useState(false);
@@ -138,20 +140,20 @@ export default function ValidationView() {
   const handleApprove = () => {
     if (!selected) return;
     setExpenses((prev) => prev.map((e) => (e.id === selected.id ? { ...e, status: "approved" as const } : e)));
-    toast.success(`Expense approved! AFAS booking created for €${selected.amount.toFixed(2)}.`);
+    toast.success(t("validation.expenseApproved", { amount: selected.amount.toFixed(2) }));
     setSelected(null);
   };
 
   const handleReject = () => {
     if (!selected) return;
     setExpenses((prev) => prev.map((e) => (e.id === selected.id ? { ...e, status: "rejected" as const } : e)));
-    toast.error(`Expense rejected. ${selected.requester} has been notified.`);
+    toast.error(t("validation.expenseRejected", { name: selected.requester }));
     setSelected(null);
   };
 
   const handleSavePolicy = () => {
-    const scopeLabel = policyScope === "team" ? "Team De Veldkeur" : "company-wide";
-    toast.success(`Policy POL-2023-088 updated. Blokker added as approved vendor for weather emergencies (${scopeLabel}).`);
+    const scopeLabel = policyScope === "team" ? t("validation.scopeTeam") : t("validation.scopeCompany");
+    toast.success(t("validation.policySaved", { scope: scopeLabel }));
     setPolicyModalOpen(false);
   };
 
@@ -160,7 +162,7 @@ export default function ValidationView() {
   const columns: TableColumn<ExpenseItem>[] = [
     {
       key: "requester",
-      label: "Requester",
+      label: t("validation.colRequester"),
       sortable: true,
       cell: (row) => (
         <div className="flex flex-col">
@@ -169,30 +171,30 @@ export default function ValidationView() {
         </div>
       ),
     },
-    { key: "item", label: "Item", sortable: true },
+    { key: "item", label: t("validation.colItem"), sortable: true },
     {
       key: "amount",
-      label: "Amount",
+      label: t("validation.colAmount"),
       sortable: true,
       align: "right",
       cell: (row) => <span className="font-medium">€{row.amount.toFixed(2)}</span>,
     },
-    { key: "vendor", label: "Vendor", sortable: true },
+    { key: "vendor", label: t("validation.colVendor"), sortable: true },
     {
       key: "status",
-      label: "Status",
+      label: t("validation.colStatus"),
       cell: (row) => {
         const cfg = statusConfig[row.status];
         return <Badge colorScheme={cfg.colorScheme} status label={cfg.label} />;
       },
     },
-    { key: "date", label: "Date", sortable: true },
+    { key: "date", label: t("validation.colDate"), sortable: true },
     {
       key: "actions",
       width: "100px",
       cell: (row) => (
         <Button variant="outline" colorScheme="primary" className="text-xs h-7 px-sp-12" onClick={() => setSelected(row)}>
-          Review
+          {t("common.review")}
         </Button>
       ),
     },
@@ -202,7 +204,7 @@ export default function ValidationView() {
 
   return (
     <div className="space-y-sp-24">
-      <PageHeader title="Supervisor Validation" subtitle="Review and approve pending expense requests" icon="fa-solid fa-clipboard-check" />
+      <PageHeader title={t("validation.title")} subtitle={t("validation.subtitle")} icon="fa-solid fa-clipboard-check" />
 
       <Table data={expenses} columns={columns} rowKey="id" />
 
@@ -217,10 +219,10 @@ export default function ValidationView() {
                 <div className="flex items-center justify-between px-sp-24 py-sp-16 border-b border-input bg-muted">
                   <div>
                     <DialogPrimitive.Title className="text-lg font-semibold text-foreground">
-                      Expense Review — {selected.requester}
+                      {t("validation.expenseReview", { name: selected.requester })}
                     </DialogPrimitive.Title>
                     <p className="text-xs text-muted-foreground mt-sp-4">
-                      {selected.team} · {selected.region} · Submitted {selected.date}
+                      {selected.team} · {selected.region} · {t("validation.submitted", { date: selected.date })}
                     </p>
                   </div>
                   <DialogPrimitive.Close asChild>
@@ -238,7 +240,7 @@ export default function ValidationView() {
                       {/* Receipt placeholder */}
                       <div className="aspect-[4/3] rounded-lg bg-grey-100 border border-input flex flex-col items-center justify-center text-muted-foreground">
                         <i className="fa-solid fa-camera text-2xl mb-sp-8" />
-                        <span className="text-xs">Receipt Image</span>
+                        <span className="text-xs">{t("validation.receiptImage")}</span>
                       </div>
 
                       {/* Amount */}
@@ -251,7 +253,7 @@ export default function ValidationView() {
                       <div className="rounded-lg border border-blue-200 bg-blue-50 p-sp-16">
                         <div className="flex items-center gap-sp-8 mb-sp-8">
                           <i className="fa-solid fa-robot text-sm text-blue-500" />
-                          <span className="text-xs font-semibold text-blue-600">AI Note</span>
+                          <span className="text-xs font-semibold text-blue-600">{t("validation.aiNote")}</span>
                         </div>
                         <p className="text-sm text-blue-700">{selected.aiNote}</p>
                       </div>
@@ -261,20 +263,20 @@ export default function ValidationView() {
                     <div className="space-y-sp-16">
                       {/* AFAS Budget Impact */}
                       <div className="rounded-lg border border-input bg-surface p-sp-16">
-                        <h3 className="text-sm font-semibold text-foreground mb-sp-4">AFAS Budget Impact</h3>
+                        <h3 className="text-sm font-semibold text-foreground mb-sp-4">{t("validation.afasBudgetImpact")}</h3>
                         <p className="text-xs text-muted-foreground mb-sp-12">
-                          {selected.budgetName} (Ledger {selected.budgetCode}) — {selected.team}
+                          {selected.budgetName} ({t("validation.ledger", { code: selected.budgetCode })}) — {selected.team}
                         </p>
                         <Progress value={selected.budgetUsed} max={selected.budgetTotal} colorScheme="primary" />
                         <div className="flex justify-between mt-sp-8 text-xs text-muted-foreground">
-                          <span>€{selected.budgetUsed.toFixed(2)} used</span>
-                          <span>€{(selected.budgetTotal - selected.budgetUsed).toFixed(2)} remaining</span>
+                          <span>{t("validation.used", { amount: selected.budgetUsed.toFixed(2) })}</span>
+                          <span>{t("validation.remaining", { amount: (selected.budgetTotal - selected.budgetUsed).toFixed(2) })}</span>
                         </div>
                       </div>
 
                       {/* Atomic Policies */}
                       <div className="space-y-sp-8">
-                        <h3 className="text-sm font-semibold text-foreground">Applied Policies</h3>
+                        <h3 className="text-sm font-semibold text-foreground">{t("validation.appliedPolicies")}</h3>
                         {selected.policies.map((pol) => (
                           <div
                             key={pol.id}
@@ -309,16 +311,16 @@ export default function ValidationView() {
                 <div className="flex items-center justify-between px-sp-24 py-sp-16 border-t border-input bg-muted">
                   <Button variant="outline" colorScheme="primary" onClick={() => setPolicyModalOpen(true)}>
                     <i className="fa-solid fa-sliders" />
-                    Adjust Policy
+                    {t("validation.adjustPolicy")}
                   </Button>
                   <div className="flex items-center gap-sp-8">
                     <Button variant="solid" colorScheme="error" onClick={handleReject}>
                       <i className="fa-solid fa-xmark" />
-                      Reject
+                      {t("common.reject")}
                     </Button>
                     <Button variant="solid" colorScheme="success" onClick={handleApprove}>
                       <i className="fa-solid fa-check" />
-                      Approve
+                      {t("common.approve")}
                     </Button>
                   </div>
                 </div>
@@ -332,28 +334,26 @@ export default function ValidationView() {
       <Modal
         open={policyModalOpen}
         onOpenChange={setPolicyModalOpen}
-        title="Adjust Policy: POL-2023-088"
+        title={t("validation.adjustPolicyTitle")}
         size="md"
         body={
           <div className="space-y-sp-16">
             <p className="text-sm text-muted-foreground">
-              Preferred Procurement — Out-of-network vendor exception
+              {t("validation.preferredProcurement")}
             </p>
-            <p className="text-sm text-foreground">
-              Do you want to permanently add <span className="font-semibold">Blokker</span> as an approved vendor for weather emergencies?
-            </p>
+            <p className="text-sm text-foreground" dangerouslySetInnerHTML={{ __html: t("validation.addVendorQuestion") }} />
             <div className="space-y-sp-12 pt-sp-8">
               <Switch
                 checked={policyScope === "team"}
                 onCheckedChange={(checked) => setPolicyScope(checked ? "team" : "company")}
-                label="Apply to Team De Veldkeur only"
-                description="Policy change affects only this team's procurement rules"
+                label={t("validation.applyTeamOnly")}
+                description={t("validation.applyTeamDesc")}
               />
               <Switch
                 checked={policyScope === "company"}
                 onCheckedChange={(checked) => setPolicyScope(checked ? "company" : "team")}
-                label="Apply Company-Wide"
-                description="All teams can use Blokker for weather emergencies"
+                label={t("validation.applyCompanyWide")}
+                description={t("validation.applyCompanyDesc")}
               />
             </div>
           </div>
@@ -361,10 +361,10 @@ export default function ValidationView() {
         footer={
           <>
             <Button variant="outline" colorScheme="primary" onClick={() => setPolicyModalOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="solid" colorScheme="primary" onClick={handleSavePolicy}>
-              Save Policy Change
+              {t("validation.savePolicyChange")}
             </Button>
           </>
         }
