@@ -253,7 +253,7 @@ export default function PolicyHubView() {
   };
 
   return (
-    <div className="relative space-y-sp-24">
+    <div className="space-y-sp-24">
       {/* ---- Header ---- */}
       <PageHeader
         title={t("policyHub.title")}
@@ -405,6 +405,8 @@ export default function PolicyHubView() {
         rowKey="id"
         sort={sort}
         onSortChange={setSort}
+        stickyHeader
+        className="max-h-[60vh]"
         emptyMessage={t("policyHub.emptyMessage")}
         onRowClick={(row) => setSelectedId(row.id)}
         rowClassName={(row) => selectedId === row.id ? "!bg-blue-50 dark:!bg-grey-800" : ""}
@@ -413,13 +415,14 @@ export default function PolicyHubView() {
             key: "id",
             label: t("policyHub.colPolicyId"),
             sortable: true,
-            cell: (row) => <span className="font-mono">{row.id}</span>,
+            width: "130px",
+            cell: (row) => <span className="font-mono whitespace-nowrap">{row.id}</span>,
           },
           {
             key: "name",
             label: t("policyHub.colName"),
             sortable: true,
-            cell: (row) => <span className="font-semibold">{row.name}</span>,
+            cell: (row) => <span className="font-semibold block truncate max-w-[200px]" title={row.name}>{row.name}</span>,
           },
           {
             key: "category",
@@ -430,6 +433,7 @@ export default function PolicyHubView() {
           {
             key: "status",
             label: t("policyHub.colStatus"),
+            width: "120px",
             cell: (row) => statusBadge(row.status),
           },
           {
@@ -440,6 +444,7 @@ export default function PolicyHubView() {
           {
             key: "friction",
             label: t("policyHub.colFriction"),
+            width: "80px",
             cell: (row) => <span className="text-muted-foreground">{row.friction}</span>,
           },
           {
@@ -476,7 +481,8 @@ export default function PolicyHubView() {
             key: "endDate",
             label: t("policyHub.colEndDate"),
             sortable: true,
-            cell: (row) => <span className="text-muted-foreground">{row.endDate || "—"}</span>,
+            width: "100px",
+            cell: (row) => <span className="text-muted-foreground whitespace-nowrap">{row.endDate || "—"}</span>,
           },
         ]}
       />
@@ -488,7 +494,7 @@ export default function PolicyHubView() {
         }`}
       >
         {selectedPolicy && (
-          <div className="p-sp-24 flex flex-col gap-sp-20">
+          <div className="p-sp-24 flex flex-col gap-sp-24">
             {/* Header */}
             <div className="flex items-start justify-between">
               <div>
@@ -684,7 +690,7 @@ export default function PolicyHubView() {
             )}
 
             {/* ---- Policy Rules Editor ---- */}
-            <section className="pt-sp-8">
+            <section className="pt-sp-8 border-t border-border">
               <h3 className="font-semibold text-sm text-foreground mb-sp-12">{t("policyHub.policyRules")}</h3>
               <div className="flex flex-col gap-sp-12">
                 <div>
@@ -711,7 +717,7 @@ export default function PolicyHubView() {
             </section>
 
             {/* ---- AFAS Mapping ---- */}
-            <section className="pt-sp-8">
+            <section className="pt-sp-8 border-t border-border">
               <h3 className="font-semibold text-sm text-foreground mb-sp-12">{t("policyHub.afasMapping")}</h3>
               <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">{t("policyHub.labelLedger")}</label>
               <Select
@@ -723,7 +729,7 @@ export default function PolicyHubView() {
             </section>
 
             {/* ---- Lifecycle Management ---- */}
-            <section className="pt-sp-8">
+            <section className="pt-sp-8 border-t border-border">
               <h3 className="font-semibold text-sm text-foreground mb-sp-12">{t("policyHub.lifecycle")}</h3>
               <div className="grid grid-cols-2 gap-sp-12">
                 <div>
