@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { upsertPolicies as apiUpsert, deleteAllPolicies, updateBenchmarks as apiBenchmarks } from "@/lib/api";
 
 /* ── Types ── */
 
@@ -201,8 +201,7 @@ export const DEMO_DOCUMENTS = [
 /* ── DB helpers ── */
 
 export async function resetPoliciesTable() {
-  const { error } = await supabase.from("policies").delete().neq("id", "");
-  if (error) throw error;
+  await deleteAllPolicies();
 }
 
 export async function upsertPolicies(
@@ -248,9 +247,8 @@ export async function upsertPolicies(
     }),
   ];
 
-  const { error } = await supabase.from("policies").upsert(rows, { onConflict: "id" });
-  if (error) throw error;
-  return rows.length;
+  const { count } = await apiUpsert(rows);
+  return count;
 }
 
 export async function populateBenchmarks() {
@@ -267,13 +265,6 @@ export async function populateBenchmarks() {
     })),
   ];
 
-  for (const u of updates) {
-    const { error } = await supabase
-      .from("policies")
-      .update({ benchmark_score: u.benchmark_score, benchmark_warning: u.benchmark_warning })
-      .eq("id", u.id);
-    if (error) throw error;
-  }
-
-  return updates.length;
+  const { count } = await apiBenchmarks(updates);
+  return count;
 }

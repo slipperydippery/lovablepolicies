@@ -11,7 +11,11 @@ import cors from "cors";
 import multer from "multer";
 import { PDFParse } from "pdf-parse";
 import Anthropic from "@anthropic-ai/sdk";
-import { createClient } from "@supabase/supabase-js";
+import db from "./db.js";
+import { SqlitePolicyRepository } from "./repo-sqlite.js";
+import type { IPolicyRepository } from "./repo.js";
+
+const policyRepo: IPolicyRepository = new SqlitePolicyRepository(db);
 
 const app = express();
 app.use(cors({
@@ -55,12 +59,6 @@ const LEDGER = [
   ]},
 ];
 
-// ── Supabase client ─────────────────────────────────────────────────
-
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 // ── Anthropic client ────────────────────────────────────────────────
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -76,11 +74,8 @@ app.post("/api/chat", async (req: Request, res: Response) => {
     };
     const responseLang = language === "nl" ? "Dutch" : "English";
 
-    // Fetch active policies from Supabase
-    const { data: policies } = await supabase
-      .from("policies")
-      .select("id, name, status, category, limit_amount, max_amount, allowed_categories, ledger, friction, intent")
-      .eq("status", "active");
+    // Fetch active policies from SQLite
+    const policies = policyRepo.getActive();
 
     const policyContext = (policies || [])
       .map((p: any) => `- ${p.id}: "${p.name}" (category: ${p.category || "general"}, max: ${p.max_amount || p.limit_amount || "no limit"}, friction: ${p.friction || "normal"}${p.intent ? `, intent: ${p.intent}` : ""}${p.allowed_categories ? `, allowed: ${p.allowed_categories}` : ""})`)
@@ -180,6 +175,68 @@ CROSS-LANGUAGE MATCHING:
     if (!res.headersSent) {
       res.status(500).json({ error: e.message || "Unknown error" });
     }
+  }
+});
+
+// ── Policy REST API ─────────────────────────────────────────────────
+
+app.get("/api/policies", (_req: Request, res: Response) => {
+  try {
+    const policies = policyRepo.getAll();
+    res.json(policies);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/policies/:id", (req: Request, res: Response) => {
+  try {
+    const policy = policyRepo.getById(req.params.id as string);
+    if (!policy) return res.status(404).json({ error: "Policy not found" });
+    res.json(policy);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put("/api/policies/:id", (req: Request, res: Response) => {
+  try {
+    const { changes } = req.body as { changes: Record<string, unknown> };
+    policyRepo.update(req.params.id as string, changes);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/policies/upsert", (req: Request, res: Response) => {
+  try {
+    const { rows } = req.body as { rows: any[] };
+    const count = policyRepo.upsert(rows);
+    res.json({ count });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/api/policies", (_req: Request, res: Response) => {
+  try {
+    const count = policyRepo.deleteAll();
+    res.json({ count });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/policies/benchmarks", (req: Request, res: Response) => {
+  try {
+    const { updates } = req.body as {
+      updates: { id: string; benchmark_score: string | null; benchmark_warning: boolean }[];
+    };
+    const count = policyRepo.updateBenchmarks(updates);
+    res.json({ count });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
 });
 

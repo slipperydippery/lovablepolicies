@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/ui/file-upload";
 import { toast } from "@/hooks/use-toast";
 import { useActiveLocation } from "@/contexts/ActiveLocationContext";
-import { supabase } from "@/integrations/supabase/client";
+import { CHAT_URL as API_CHAT_URL, fetchPolicies } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -59,7 +59,7 @@ function timeNow() {
   return new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
 }
 
-const CHAT_URL = import.meta.env.VITE_CHAT_API_URL || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/policy-chat`;
+const CHAT_URL = import.meta.env.VITE_CHAT_API_URL || API_CHAT_URL;
 
 /* ------------------------------------------------------------------ */
 /*  Streaming helper                                                   */
@@ -84,7 +84,6 @@ async function streamChat({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
     body: JSON.stringify({ messages, locationName, language }),
     signal,
@@ -221,20 +220,18 @@ export default function ChatView() {
 
   // Fetch policy names once on mount
   useEffect(() => {
-    supabase.from("policies").select("id, name, category, max_amount, friction, intent").then(({ data }) => {
-      if (data) {
-        const map: Record<string, { name: string; category: string; maxAmount: string; friction: string; intent: string }> = {};
-        data.forEach((p: any) => {
-          map[p.id] = {
-            name: p.name,
-            category: p.category || "",
-            maxAmount: p.max_amount || "",
-            friction: p.friction || "",
-            intent: p.intent || "",
-          };
-        });
-        policyDataRef.current = map;
-      }
+    fetchPolicies().then((data) => {
+      const map: Record<string, { name: string; category: string; maxAmount: string; friction: string; intent: string }> = {};
+      data.forEach((p) => {
+        map[p.id] = {
+          name: p.name,
+          category: p.category || "",
+          maxAmount: p.max_amount || "",
+          friction: p.friction || "",
+          intent: p.intent || "",
+        };
+      });
+      policyDataRef.current = map;
     });
   }, []);
 

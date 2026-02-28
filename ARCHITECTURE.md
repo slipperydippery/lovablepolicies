@@ -22,7 +22,7 @@ Botchie provides:
 #### AI Chat (`/app/mobile/chat`)
 The core feature. A care worker types (or speaks via voice input) a question like *"Mag ik luiers bestellen bij ABENA?"* (Can I order diapers from ABENA?). The AI:
 
-1. Fetches **active policies** from the Supabase `policies` table
+1. Fetches **active policies** from the SQLite `policies` table (via Express server)
 2. Semantically matches the question to relevant policies (cross-language: Dutch questions match English policy names)
 3. Checks if the supplier is on the **approved list**
 4. Checks **budget availability** from ledger data
@@ -49,7 +49,7 @@ Placeholder — shows "Coming Soon".
 #### Policy Hub (`/app/admin/policy-hub`)
 The policy management center:
 
-- **Table view** of all policies from Supabase with columns: ID, Name, Category, Status, Max Amount, Friction, Benchmark
+- **Table view** of all policies with columns: ID, Name, Category, Status, Max Amount, Friction, Benchmark, Source
 - **Filters**: All / Active / Drafts / Conflicts / Needs Review
 - **Search**: Free-text filter across policy fields
 - **Sortable columns** with click-to-sort
@@ -102,51 +102,36 @@ Vite + React 18 + TypeScript
 └── React Context (active location selection)
 ```
 
-### 3.2 Backend — Chat (two alternatives)
+### 3.2 Backend — Express Server
 
-The AI chat has two interchangeable backend implementations:
-
-**Option A: Supabase Edge Function** (default)
 ```
-Frontend → POST /functions/v1/policy-chat
-         → Deno edge function
-         → Fetches policies from Supabase
-         → Calls Lovable AI Gateway (Gemini)
-         → Streams SSE response back
-```
-
-**Option B: Express Server** (local dev / self-hosted)
-```
-Frontend → POST /api/chat (set VITE_CHAT_API_URL)
+Frontend → POST /api/chat
          → Express server (server/index.ts)
-         → Fetches policies from Supabase
+         → Fetches active policies from SQLite via repository
          → Calls Anthropic API (Claude Sonnet)
          → Streams SSE response back
 ```
 
-Both backends:
-1. Accept `{ messages, locationName, language }` in the request body
-2. Fetch active policies from Supabase
-3. Build a system prompt with policy context, supplier list, budget data, and response rules
-4. Stream the LLM response as SSE in OpenAI-compatible format
+The backend:
+1. Accepts `{ messages, locationName, language }` in the request body
+2. Fetches active policies from SQLite via `IPolicyRepository`
+3. Builds a system prompt with policy context, supplier list, budget data, and response rules
+4. Streams the LLM response as SSE in OpenAI-compatible format
 5. The frontend parses `data: {choices: [{delta: {content: "..."}}]}` chunks
 
-### 3.3 Database (Supabase / Postgres)
+### 3.3 Database (SQLite via better-sqlite3)
 
 ```sql
 policies (id text PK, name, category, status, max_amount, limit_amount,
           friction, intent, afas_code, ledger, benchmark_score,
           benchmark_warning, start_date, end_date, allowed_categories,
           source_document, created_at, updated_at)
-
-ledger_categories (id text PK, code, name, total_budget, location_id)
-
-sub_ledgers (id text PK, category_id FK, code, name, budget, spent)
 ```
 
-- RLS is enabled but permissive (no auth yet)
+- Database file: `server/data/botchie.db` (gitignored, auto-created on first server start)
 - `updated_at` auto-updates via trigger
-- Ledger tables are seeded with data for location "De VeldKeur"
+- **Repository pattern**: All DB access goes through `IPolicyRepository` (defined in `server/repo.ts`). To swap storage backends (e.g. to Postgres, Turso, etc.), implement the interface in a new file and change one import in `server/index.ts`.
+- Ledger/supplier data is currently hardcoded in both frontend mocks and server constants (not persisted)
 
 ### 3.4 Design System (BEAN)
 
@@ -164,7 +149,7 @@ The UI follows a custom design system defined in:
 User types question
   → ChatView.send()
   → POST to chat backend (SSE)
-  → Backend fetches active policies from Supabase
+  → Backend fetches active policies from SQLite
   → Backend builds system prompt with policies + suppliers + budgets
   → LLM generates response with [REGISTER:xx] and [POLICIES:xx] markers
   → Frontend parses SSE chunks, streams text to UI
@@ -194,34 +179,20 @@ AI Extraction mode:
 Both modes then:
   → Admin resolves conflicts (pick Source A, Source B, benchmark, or custom value)
   → Click "Activate All"
-  → upsertPolicies() → Supabase policies table
+  → upsertPolicies() → POST /api/policies/upsert → SQLite
   → Policy Hub table refreshes via React Query invalidation
 ```
 
 ## 5. Environment Setup
 
-### Required
 ```env
 # Frontend (.env at project root)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=eyJ...
+VITE_API_URL=http://localhost:3001
 
-# Optional: point chat to Express server instead of edge function
-VITE_CHAT_API_URL=http://localhost:3001/api/chat
-```
-
-### For Express Server (`server/`)
-```env
+# Server (server/ directory, or project root .env)
 ANTHROPIC_API_KEY=sk-ant-...
-# Supabase credentials (tries both naming conventions)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_PUBLISHABLE_KEY=eyJ...
 PORT=3001
 ```
-
-### For Supabase Edge Function
-Set in Supabase Dashboard → Edge Functions → Secrets:
-- `LOVABLE_API_KEY` — Lovable AI gateway key
 
 ## 6. Running Locally
 
@@ -230,7 +201,7 @@ Set in Supabase Dashboard → Edge Functions → Secrets:
 npm install
 npm run dev          # → http://localhost:8080
 
-# Express chat server (optional, in separate terminal)
+# Express API server (required, in separate terminal)
 cd server
 npm install
 npm run dev          # → http://localhost:3001
@@ -250,13 +221,13 @@ npm run dev          # → http://localhost:3001
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Authentication | ❌ Not implemented | No user auth, RLS is permissive |
+| Authentication | ❌ Not implemented | No user auth |
 | Profile page | ❌ Placeholder | Shows "Coming Soon" |
 | Validation data | ⚠️ Mock only | Hardcoded expenses, not connected to DB |
 | Purchases data | ⚠️ Mock only | Hardcoded deliveries and history |
 | Budget data | ⚠️ Partially mock | Ledger in DB but monthly figures use random variance |
 | Supplier data | ⚠️ Duplicated | Same list hardcoded in frontend mocks + both backends |
-| Ledger data | ⚠️ Duplicated | Same list in frontend mocks + both backends |
+| Ledger data | ⚠️ Duplicated | Same list in frontend mocks + server constants |
 | Multi-tenancy | ❌ Not implemented | Single-org, location switching is cosmetic |
 | Onboarding AI | ✅ Dual mode | Demo mode (simulated) + real AI extraction via Claude |
 

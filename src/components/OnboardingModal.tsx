@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { EXTRACT_URL } from "@/lib/api";
 import { Modal } from "@/components/ui/modal";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Button } from "@/components/ui/button";
@@ -18,10 +19,6 @@ import {
 
 type Phase = "upload" | "processing" | "results";
 type Mode = "demo" | "ai";
-
-const EXTRACT_URL = import.meta.env.VITE_CHAT_API_URL
-  ? `${new URL(import.meta.env.VITE_CHAT_API_URL).origin}/api/extract-policies`
-  : "http://localhost:3001/api/extract-policies";
 
 interface OnboardingModalProps {
   open: boolean;

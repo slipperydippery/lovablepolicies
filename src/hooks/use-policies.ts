@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchPolicies, updatePolicy as apiUpdatePolicy, type PolicyRow } from "@/lib/api";
 
 export interface Policy {
   id: string;
@@ -22,26 +22,7 @@ export interface Policy {
   createdAt: string;
 }
 
-interface PolicyRow {
-  id: string;
-  name: string;
-  ledger: string | null;
-  status: string;
-  benchmark_score: string | null;
-  benchmark_warning: boolean | null;
-  valid_until: string | null;
-  intent: string | null;
-  max_amount: string | null;
-  allowed_categories: string | null;
-  afas_code: number | null;
-  start_date: string | null;
-  end_date: string | null;
-  limit_amount: number | null;
-  friction: string | null;
-  category: string | null;
-  source_document: string | null;
-  created_at: string | null;
-}
+// PolicyRow type is imported from @/lib/api
 
 function rowToPolicy(row: PolicyRow): Policy {
   return {
@@ -74,12 +55,8 @@ export function usePolicies() {
   const query = useQuery({
     queryKey: POLICIES_KEY,
     queryFn: async (): Promise<Policy[]> => {
-      const { data, error } = await supabase
-        .from("policies" as any)
-        .select("*")
-        .order("id");
-      if (error) throw error;
-      return (data as unknown as PolicyRow[]).map(rowToPolicy);
+      const data = await fetchPolicies();
+      return data.map(rowToPolicy);
     },
   });
 
@@ -104,11 +81,7 @@ export function usePolicies() {
         dbChanges[dbKey] = val;
       }
 
-      const { error } = await supabase
-        .from("policies" as any)
-        .update(dbChanges)
-        .eq("id", updates.id);
-      if (error) throw error;
+      await apiUpdatePolicy(updates.id, dbChanges);
     },
     onMutate: async (updates) => {
       await queryClient.cancelQueries({ queryKey: POLICIES_KEY });
