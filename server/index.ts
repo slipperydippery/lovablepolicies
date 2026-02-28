@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import crypto from "crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -12,10 +13,18 @@ import multer from "multer";
 import { PDFParse } from "pdf-parse";
 import Anthropic from "@anthropic-ai/sdk";
 import db from "./db.js";
-import { SqlitePolicyRepository } from "./repo-sqlite.js";
-import type { IPolicyRepository } from "./repo.js";
+import {
+  SqlitePolicyRepository,
+  SqliteDocumentJobRepository,
+  SqlitePolicyConflictRepository,
+  SqliteAuditLogRepository,
+} from "./repo-sqlite.js";
+import type { IPolicyRepository, IDocumentJobRepository, IPolicyConflictRepository, IAuditLogRepository } from "./repo.js";
 
 const policyRepo: IPolicyRepository = new SqlitePolicyRepository(db);
+const jobRepo: IDocumentJobRepository = new SqliteDocumentJobRepository(db);
+const conflictRepo: IPolicyConflictRepository = new SqlitePolicyConflictRepository(db);
+const auditRepo: IAuditLogRepository = new SqliteAuditLogRepository(db);
 
 const app = express();
 app.use(cors({
@@ -240,7 +249,90 @@ app.post("/api/policies/benchmarks", (req: Request, res: Response) => {
   }
 });
 
-// ── Extract policies endpoint ───────────────────────────────────────
+// ── Document Jobs endpoints ──────────────────────────────────────────
+
+app.post("/api/document-jobs", upload.array("files", 20), async (req: Request, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
+
+    const jobs: { id: string; filename: string }[] = [];
+    for (const file of files) {
+      let text: string;
+      if (file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf")) {
+        const pdfParser = new PDFParse({ data: new Uint8Array(file.buffer) });
+        const parsed = await pdfParser.getText();
+        text = parsed.text;
+      } else {
+        text = file.buffer.toString("utf-8");
+      }
+
+      const jobId = `job-${crypto.randomUUID()}`;
+      jobRepo.create({ id: jobId, filename: file.originalname, file_content: text });
+      jobs.push({ id: jobId, filename: file.originalname });
+    }
+
+    // Kick off background processing
+    scheduleProcessing();
+
+    res.json({ jobs });
+  } catch (e: any) {
+    console.error("document-jobs create error:", e);
+    res.status(500).json({ error: e.message || "Unknown error" });
+  }
+});
+
+app.get("/api/document-jobs", (_req: Request, res: Response) => {
+  try {
+    const jobs = jobRepo.getAll();
+    res.json(jobs);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/api/document-jobs", (_req: Request, res: Response) => {
+  try {
+    const count = jobRepo.deleteAll();
+    res.json({ count });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Policy Conflicts endpoints ───────────────────────────────────────
+
+app.get("/api/policy-conflicts", (_req: Request, res: Response) => {
+  try {
+    const conflicts = conflictRepo.getAll();
+    res.json(conflicts);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/policy-conflicts/:id/resolve", (req: Request, res: Response) => {
+  try {
+    const { resolved_policy_id } = req.body as { resolved_policy_id: string };
+    conflictRepo.resolve(req.params.id as string, resolved_policy_id);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/api/policy-conflicts", (_req: Request, res: Response) => {
+  try {
+    const count = conflictRepo.deleteAll();
+    res.json({ count });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Legacy extract-policies endpoint (used by demo mode) ─────────────
 
 app.post("/api/extract-policies", upload.array("files", 20), async (req: Request, res: Response) => {
   try {
@@ -249,7 +341,6 @@ app.post("/api/extract-policies", upload.array("files", 20), async (req: Request
       return res.status(400).json({ error: "No files uploaded" });
     }
 
-    // Extract text from each file
     const documents: { name: string; content: string }[] = [];
     for (const file of files) {
       let text: string;
@@ -267,85 +358,26 @@ app.post("/api/extract-policies", upload.array("files", 20), async (req: Request
       .map((d) => `=== DOCUMENT: "${d.name}" ===\n${d.content}\n=== END OF "${d.name}" ===`)
       .join("\n\n");
 
-    const systemPrompt = `You are a policy extraction engine for a Dutch healthcare procurement system.
-
-Your task: Read the uploaded policy documents and extract every atomic purchasing rule into structured JSON.
-
-OUTPUT FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
-{
-  "readyPolicies": [
-    {
-      "id": "POL-2026-XXX",
-      "name": "Short English policy name",
-      "category": "Category name",
-      "maxAmount": "EUR XX,XX per unit (human-readable)",
-      "friction": "Low" | "Medium" | "High",
-      "afasCode": 4XXX,
-      "intent": "One-sentence description of what this policy allows or restricts.",
-      "limitAmount": 50,
-      "benchmarkScore": "Matches VVT Standard" or similar,
-      "benchmarkWarning": false,
-      "startDate": "2026-01-01",
-      "endDate": "2026-12-31",
-      "sourceDocuments": "Document Name A, Document Name B"
-    }
-  ],
-  "conflictPolicies": [
-    {
-      "id": "POL-2026-XXX",
-      "name": "Short English policy name",
-      "category": "Category name",
-      "friction": "Low" | "Medium" | "High",
-      "afasCode": 4XXX,
-      "intent": "One-sentence description.",
-      "conflictField": "Human-readable field name (e.g. Max spend per birthday)",
-      "sourceA": { "label": "Document name A", "value": 15, "display": "EUR 15" },
-      "sourceB": { "label": "Document name B", "value": 25, "display": "EUR 25" },
-      "benchmark": { "label": "Sector avg", "value": 20, "display": "EUR 20" },
-      "sourceDocuments": "Document Name A, Document Name B"
-    }
-  ]
-}
-
-RULES:
-1. Extract every distinct purchasing rule as a separate policy.
-2. If TWO OR MORE documents specify DIFFERENT values for the same rule (e.g. different spending limits), put it in "conflictPolicies" with sourceA/sourceB referencing the document names and their respective values. Provide a reasonable benchmark suggestion.
-3. If a rule appears in multiple documents with CONSISTENT values, or only in one document, put it in "readyPolicies".
-4. Generate unique policy IDs in format POL-2026-XXX (increment from 041).
-5. Map each policy to a plausible AFAS ledger code:
-   - 4110 = Nutrition, 4120 = Meals by third parties, 4130 = Beverages & Snacks
-   - 4210 = Groceries, 4230 = Office Supplies
-   - 4310 = Incontinence Materials, 4320 = Pharmaceuticals, 4330 = Medical Aids, 4340 = Recreation
-   - 4510 = Travel & Transport, 4600 = Temporary Staff
-6. Friction levels: Low = under EUR 50 / auto-approve, Medium = EUR 50-150 / needs awareness, High = above EUR 150 or requires approval.
-7. Policy names and all fields MUST be in English.
-8. limitAmount should be the numeric euro value (integer). Use 0 if no per-transaction limit.
-9. Dates: use reasonable defaults (startDate = 2026-01-01, endDate = 2026-12-31) unless the document specifies dates.
-10. Return ONLY the JSON object. No markdown, no commentary.
-11. sourceDocuments: comma-separated list of the original document name(s) that this rule was found in. Use the exact document filenames from the upload.`;
+    const systemPrompt = EXTRACTION_SYSTEM_PROMPT;
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: "user", content: documentsContext }],
     });
 
-    // Extract text from response
     const textBlock = response.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
       return res.status(500).json({ error: "No text response from AI" });
     }
 
-    // Parse JSON — strip markdown fences if Claude adds them despite instructions
     let jsonStr = textBlock.text.trim();
     if (jsonStr.startsWith("```")) {
       jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
     }
 
     const parsed = JSON.parse(jsonStr);
-
-    // Validate basic shape
     if (!Array.isArray(parsed.readyPolicies) || !Array.isArray(parsed.conflictPolicies)) {
       return res.status(500).json({ error: "AI returned invalid policy structure" });
     }
@@ -357,6 +389,205 @@ RULES:
   }
 });
 
+// ── Shared extraction prompt ─────────────────────────────────────────
+
+const EXTRACTION_SYSTEM_PROMPT = `You are a policy extraction engine for a Dutch healthcare procurement system.
+
+Your task: Read the uploaded policy document and extract every atomic purchasing rule into structured JSON.
+
+OUTPUT FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
+{
+  "policies": [
+    {
+      "name": "Short English policy name",
+      "category": "Category name",
+      "maxAmount": "EUR XX,XX per unit (human-readable)",
+      "friction": "Low" | "Medium" | "High",
+      "afasCode": 4XXX,
+      "intent": "One-sentence description of what this policy allows or restricts.",
+      "limitAmount": 50,
+      "startDate": "2026-01-01",
+      "endDate": "2026-12-31"
+    }
+  ]
+}
+
+RULES:
+1. Extract every distinct purchasing rule as a separate policy.
+2. Generate unique policy names that are clear and concise.
+3. Map each policy to a plausible AFAS ledger code:
+   - 4110 = Nutrition, 4120 = Meals by third parties, 4130 = Beverages & Snacks
+   - 4210 = Groceries, 4230 = Office Supplies
+   - 4310 = Incontinence Materials, 4320 = Pharmaceuticals, 4330 = Medical Aids, 4340 = Recreation
+   - 4510 = Travel & Transport, 4600 = Temporary Staff
+4. Friction levels: Low = under EUR 50 / auto-approve, Medium = EUR 50-150 / needs awareness, High = above EUR 150 or requires approval.
+5. Policy names and all fields MUST be in English.
+6. limitAmount should be the numeric euro value (integer). Use 0 if no per-transaction limit.
+7. Dates: use reasonable defaults (startDate = 2026-01-01, endDate = 2026-12-31) unless the document specifies dates.
+8. Return ONLY the JSON object. No markdown, no commentary.`;
+
+// ── Background document processor ────────────────────────────────────
+
+let processingActive = false;
+
+function scheduleProcessing() {
+  if (processingActive) return;
+  processingActive = true;
+  // Use setTimeout to avoid blocking the current request
+  setTimeout(() => processNextJob(), 100);
+}
+
+async function processNextJob() {
+  const job = jobRepo.getNextQueued();
+  if (!job) {
+    processingActive = false;
+    return;
+  }
+
+  console.log(`[processor] Starting job ${job.id}: ${job.filename}`);
+  jobRepo.updateStatus(job.id, "processing");
+
+  try {
+    const documentContent = job.file_content || "";
+
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 8192,
+      system: EXTRACTION_SYSTEM_PROMPT,
+      messages: [{
+        role: "user",
+        content: `=== DOCUMENT: "${job.filename}" ===\n${documentContent}\n=== END OF "${job.filename}" ===`,
+      }],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from AI");
+    }
+
+    let jsonStr = textBlock.text.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+
+    const parsed = JSON.parse(jsonStr);
+    const extractedPolicies: any[] = parsed.policies || [];
+
+    // Generate IDs and insert policies as pending_review
+    const existingIds = policyRepo.getAll().map((p) => p.id);
+    let idCounter = existingIds.length > 0
+      ? Math.max(...existingIds.map((id) => {
+          const num = parseInt(id.split("-").pop() || "0", 10);
+          return isNaN(num) ? 0 : num;
+        })) + 1
+      : 41;
+
+    const newPolicyRows = extractedPolicies.map((p: any) => {
+      const policyId = `POL-2026-${String(idCounter++).padStart(3, "0")}`;
+      return {
+        id: policyId,
+        name: p.name,
+        category: p.category ?? null,
+        status: "pending_review",
+        max_amount: p.maxAmount ?? null,
+        limit_amount: p.limitAmount ?? 0,
+        friction: p.friction ?? null,
+        intent: p.intent ?? null,
+        afas_code: p.afasCode ?? null,
+        ledger: p.afasCode ? String(p.afasCode) : null,
+        benchmark_score: null,
+        benchmark_warning: false,
+        allowed_categories: null,
+        source_document: job.filename,
+        start_date: p.startDate ?? null,
+        end_date: p.endDate ?? null,
+        extraction_job_id: job.id,
+      };
+    });
+
+    if (newPolicyRows.length > 0) {
+      policyRepo.upsert(newPolicyRows);
+
+      // Audit log for each new policy
+      for (const row of newPolicyRows) {
+        auditRepo.log({
+          policy_id: row.id,
+          action: "created",
+          changes_json: JSON.stringify(row),
+          source: `ai_extraction:${job.id}`,
+        });
+      }
+    }
+
+    // ── Conflict detection against ALL existing policies ──────────
+    const allPolicies = policyRepo.getAll();
+    const newIds = new Set(newPolicyRows.map((r) => r.id));
+
+    for (const newRow of newPolicyRows) {
+      for (const existing of allPolicies) {
+        // Skip self-comparison
+        if (existing.id === newRow.id) continue;
+        // Skip deprecated policies
+        if (existing.status === "deprecated") continue;
+
+        // Detect conflict: same category + same AFAS code but different limit amounts
+        if (
+          existing.category === newRow.category &&
+          existing.afas_code === newRow.afas_code &&
+          existing.limit_amount !== null &&
+          newRow.limit_amount !== null &&
+          existing.limit_amount !== newRow.limit_amount &&
+          existing.limit_amount > 0 &&
+          newRow.limit_amount > 0
+        ) {
+          const conflictId = `conflict-${crypto.randomUUID()}`;
+          conflictRepo.create({
+            id: conflictId,
+            policy_a_id: existing.id,
+            policy_b_id: newRow.id,
+            conflict_field: `Limit amount: ${existing.max_amount || existing.limit_amount} vs ${newRow.max_amount || newRow.limit_amount}`,
+            description: `Both policies cover "${newRow.category}" (AFAS ${newRow.afas_code}) but specify different spending limits. Source: "${existing.source_document || 'existing'}" vs "${newRow.source_document || 'new document'}"`,
+          });
+
+          // Mark both as conflict status
+          policyRepo.update(existing.id, { status: "conflict" });
+          policyRepo.update(newRow.id, { status: "conflict" });
+
+          auditRepo.log({
+            policy_id: existing.id,
+            action: "conflict_detected",
+            changes_json: JSON.stringify({ conflict_with: newRow.id, conflict_id: conflictId }),
+            source: `ai_extraction:${job.id}`,
+          });
+          auditRepo.log({
+            policy_id: newRow.id,
+            action: "conflict_detected",
+            changes_json: JSON.stringify({ conflict_with: existing.id, conflict_id: conflictId }),
+            source: `ai_extraction:${job.id}`,
+          });
+        }
+      }
+    }
+
+    jobRepo.updateStatus(job.id, "done", { policies_extracted: newPolicyRows.length });
+    console.log(`[processor] Completed job ${job.id}: extracted ${newPolicyRows.length} policies`);
+  } catch (e: any) {
+    console.error(`[processor] Failed job ${job.id}:`, e);
+    jobRepo.updateStatus(job.id, "error", { error_message: e.message || "Unknown error" });
+  }
+
+  // Process next job in queue
+  setTimeout(() => processNextJob(), 500);
+}
+
+// ── Start server ─────────────────────────────────────────────────────
+
 app.listen(Number(PORT), "0.0.0.0", () => {
   console.log(`API server running on http://0.0.0.0:${PORT}`);
+  // Resume processing any queued jobs from before restart
+  const queued = jobRepo.getNextQueued();
+  if (queued) {
+    console.log("[processor] Resuming queued jobs...");
+    scheduleProcessing();
+  }
 });

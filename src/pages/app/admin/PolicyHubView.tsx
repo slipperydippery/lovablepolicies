@@ -4,17 +4,20 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { Table, type TableColumn, type TableSort } from "@/components/ui/table";
 import { PageHeader } from "@/components/ui/page-header";
 import { mockLedger } from "@/data/mock-ledger";
 import { usePolicies } from "@/hooks/use-policies";
 import type { Policy } from "@/hooks/use-policies";
+import { useDocumentJobs } from "@/hooks/use-document-jobs";
+import { deleteAllDocumentJobs, fetchPolicyConflicts, resolveConflict as apiResolveConflict, type PolicyConflictRow } from "@/lib/api";
 import { resetPoliciesTable, populateBenchmarks } from "@/data/onboarding-policies";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import OnboardingModal from "@/components/OnboardingModal";
 
-type FilterKey = "all" | "active" | "conflict" | "review" | "draft";
+type FilterKey = "all" | "active" | "pending_review" | "conflict" | "review" | "draft";
 
 /* ------------------------------------------------------------------ */
 /*  Ledger options for AFAS mapping dropdown                           */
@@ -38,6 +41,7 @@ export default function PolicyHubView() {
   const FILTERS: { key: FilterKey; label: string }[] = [
     { key: "all", label: t("policyHub.filterAll") },
     { key: "active", label: t("policyHub.filterActive") },
+    { key: "pending_review", label: t("policyHub.filterPendingReview") },
     { key: "draft", label: t("policyHub.filterDrafts") },
     { key: "conflict", label: t("policyHub.filterConflicts") },
     { key: "review", label: t("policyHub.filterNeedsReview") },
@@ -49,6 +53,20 @@ export default function PolicyHubView() {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [sort, setSort] = useState<TableSort>({ column: "id", direction: "asc" });
   const queryClient = useQueryClient();
+  const { jobs, hasActiveJobs, processingJob, queuedJobs, completedJobs, errorJobs, invalidate: invalidateJobs } = useDocumentJobs();
+  const [conflicts, setConflicts] = useState<PolicyConflictRow[]>([]);
+
+  // Fetch conflicts
+  useEffect(() => {
+    fetchPolicyConflicts().then(setConflicts).catch(() => {});
+  }, [policies]);
+
+  // When jobs complete, refresh policies
+  useEffect(() => {
+    if (!hasActiveJobs && jobs.length > 0) {
+      queryClient.invalidateQueries({ queryKey: ["policies"] });
+    }
+  }, [hasActiveJobs]);
 
   const handleRemoveAll = async () => {
     setRemoving(true);
@@ -128,6 +146,7 @@ export default function PolicyHubView() {
   const filtered = useMemo(() => {
     let list = policies;
     if (filter === "active") list = list.filter((p) => p.status === "active");
+    else if (filter === "pending_review") list = list.filter((p) => p.status === "pending_review");
     else if (filter === "conflict") list = list.filter((p) => p.status === "conflict");
     else if (filter === "review") list = list.filter((p) => p.benchmarkWarning);
     else if (filter === "draft") list = list.filter((p) => p.status === "draft");
@@ -183,16 +202,42 @@ export default function PolicyHubView() {
     },
   };
 
+  // Helpers for conflict resolution
+  const getConflictsForPolicy = (policyId: string) =>
+    conflicts.filter((c) => !c.resolved && (c.policy_a_id === policyId || c.policy_b_id === policyId));
+
+  const handleResolveConflict = async (conflict: PolicyConflictRow, keepPolicyId: string) => {
+    const otherPolicyId = conflict.policy_a_id === keepPolicyId ? conflict.policy_b_id : conflict.policy_a_id;
+    try {
+      await apiResolveConflict(conflict.id, keepPolicyId);
+      updatePolicy(keepPolicyId, { status: "active" });
+      updatePolicy(otherPolicyId, { status: "deprecated" });
+      setConflicts((prev) => prev.map((c) => c.id === conflict.id ? { ...c, resolved: true, resolved_policy_id: keepPolicyId } : c));
+      toast.success(t("policyHub.conflictResolved"));
+    } catch {
+      toast.error("Failed to resolve conflict.");
+    }
+  };
+
+  const handleClearCompletedJobs = async () => {
+    try {
+      await deleteAllDocumentJobs();
+      invalidateJobs();
+    } catch {}
+  };
+
   /* Status badge helper */
   const statusBadge = (status: Policy["status"]) => {
     const map: Record<Policy["status"], { label: string; color: "success" | "error" | "neutral" | "warning" }> = {
       active: { label: t("policyHub.statusActive"), color: "success" },
+      pending_review: { label: t("policyHub.statusPendingReview"), color: "warning" },
       conflict: { label: t("policyHub.statusConflict"), color: "error" },
       deprecated: { label: t("policyHub.statusDeprecated"), color: "neutral" },
       draft: { label: t("policyHub.statusDraft"), color: "warning" },
     };
-    const { label, color } = map[status];
-    return <Badge status colorScheme={color} label={label} />;
+    const entry = map[status];
+    if (!entry) return <Badge status colorScheme="neutral" label={status} />;
+    return <Badge status colorScheme={entry.color} label={entry.label} />;
   };
 
   return (
@@ -238,8 +283,69 @@ export default function PolicyHubView() {
       <OnboardingModal
         open={onboardingOpen}
         onOpenChange={setOnboardingOpen}
-        onActivated={() => queryClient.invalidateQueries({ queryKey: ["policies"] })}
+        onActivated={() => {
+          queryClient.invalidateQueries({ queryKey: ["policies"] });
+          invalidateJobs();
+        }}
       />
+
+      {/* ---- Document Queue Panel ---- */}
+      {jobs.length > 0 && (
+        <div className="rounded-lg border border-border bg-background p-sp-16 space-y-sp-12">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-sp-8">
+              <i className="fa-solid fa-layer-group text-primary" aria-hidden="true" />
+              {t("queue.title")}
+            </h3>
+            {!hasActiveJobs && (
+              <Button variant="outline" onClick={handleClearCompletedJobs}>
+                <i className="fa-solid fa-broom" aria-hidden="true" />
+                {t("queue.clearCompleted")}
+              </Button>
+            )}
+          </div>
+          <div className="space-y-sp-8">
+            {jobs.map((job) => (
+              <div key={job.id} className="flex items-center gap-sp-12 text-sm">
+                <div className="flex items-center justify-center w-6 h-6 shrink-0">
+                  {job.status === "processing" && (
+                    <i className="fa-solid fa-spinner fa-spin text-primary" aria-hidden="true" />
+                  )}
+                  {job.status === "queued" && (
+                    <i className="fa-solid fa-clock text-muted-foreground" aria-hidden="true" />
+                  )}
+                  {job.status === "done" && (
+                    <i className="fa-solid fa-circle-check text-success" aria-hidden="true" />
+                  )}
+                  {job.status === "error" && (
+                    <i className="fa-solid fa-circle-xmark text-error" aria-hidden="true" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-foreground truncate block">{job.filename}</span>
+                </div>
+                <div className="shrink-0">
+                  {job.status === "processing" && (
+                    <Badge colorScheme="primary" label={t("queue.processing")} />
+                  )}
+                  {job.status === "queued" && (
+                    <Badge colorScheme="neutral" label={t("queue.queued")} />
+                  )}
+                  {job.status === "done" && (
+                    <Badge colorScheme="success" label={t("queue.policiesExtracted", { count: job.policies_extracted })} />
+                  )}
+                  {job.status === "error" && (
+                    <Badge colorScheme="error" label={t("queue.error")} />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {hasActiveJobs && (
+            <Progress indeterminate colorScheme="primary" />
+          )}
+        </div>
+      )}
 
       {/* ---- Search ---- */}
       <div className="max-w-md">
@@ -396,6 +502,27 @@ export default function PolicyHubView() {
               )}
             </div>
 
+            {/* ---- Pending Review Activation Card ---- */}
+            {selectedPolicy.status === "pending_review" && (
+              <div className="rounded-lg border border-warning/30 bg-warning/10 p-sp-16">
+                <p className="text-sm font-semibold text-warning mb-sp-8">
+                  {t("policyHub.pendingReviewPolicy")}
+                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {t("policyHub.pendingReviewPolicyDesc")}
+                </p>
+                <Button
+                  variant="solid"
+                  colorScheme="primary"
+                  className="mt-sp-12"
+                  onClick={() => activatePolicy(selectedPolicy.id)}
+                >
+                  <i className="fa-solid fa-check" aria-hidden="true" />
+                  {t("policyHub.reviewPolicy")}
+                </Button>
+              </div>
+            )}
+
             {/* ---- Draft Activation Card ---- */}
             {selectedPolicy.status === "draft" && (
               <div className="rounded-lg border border-warning/30 bg-warning/10 p-sp-16">
@@ -414,6 +541,51 @@ export default function PolicyHubView() {
                 </Button>
               </div>
             )}
+
+            {/* ---- Conflict Resolution Card ---- */}
+            {selectedPolicy.status === "conflict" && (() => {
+              const policyConflicts = getConflictsForPolicy(selectedPolicy.id);
+              if (policyConflicts.length === 0) return null;
+              return policyConflicts.map((conflict) => {
+                const otherPolicyId = conflict.policy_a_id === selectedPolicy.id ? conflict.policy_b_id : conflict.policy_a_id;
+                const otherPolicy = policies.find((p) => p.id === otherPolicyId);
+                return (
+                  <div key={conflict.id} className="rounded-lg border border-error/30 bg-error/10 p-sp-16">
+                    <p className="text-sm font-semibold text-error mb-sp-4">
+                      {t("policyHub.conflictPolicy")}
+                    </p>
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-sp-8">
+                      {t("policyHub.conflictPolicyDesc")}
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-sp-4">
+                      <span className="font-semibold">{t("policyHub.conflictField")}:</span> {conflict.conflict_field}
+                    </p>
+                    {otherPolicy && (
+                      <p className="text-xs text-muted-foreground mb-sp-8">
+                        <span className="font-semibold">{t("policyHub.conflictWith")}:</span> {otherPolicy.id} — {otherPolicy.name} ({otherPolicy.maxAmount})
+                      </p>
+                    )}
+                    <div className="flex gap-sp-8">
+                      <Button
+                        variant="solid"
+                        colorScheme="primary"
+                        onClick={() => handleResolveConflict(conflict, selectedPolicy.id)}
+                      >
+                        {t("policyHub.resolveKeepThis")}
+                      </Button>
+                      {otherPolicy && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleResolveConflict(conflict, otherPolicyId)}
+                        >
+                          {t("policyHub.resolveKeepOther")}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
 
             {/* ---- Benchmark Insight Card (generic) ---- */}
             {selectedPolicy.benchmarkWarning && selectedPolicy.status !== "deprecated" && (() => {

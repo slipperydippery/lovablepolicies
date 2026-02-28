@@ -5,7 +5,7 @@ export interface Policy {
   id: string;
   name: string;
   ledger: string;
-  status: "active" | "conflict" | "deprecated" | "draft";
+  status: "active" | "pending_review" | "conflict" | "deprecated" | "draft";
   benchmarkScore: string | null;
   benchmarkWarning: boolean;
   validUntil: string;
@@ -19,6 +19,7 @@ export interface Policy {
   friction: "Low" | "Medium" | "High";
   category: string;
   sourceDocument: string;
+  extractionJobId: string;
   createdAt: string;
 }
 
@@ -43,6 +44,7 @@ function rowToPolicy(row: PolicyRow): Policy {
     friction: (row.friction ?? "Low") as Policy["friction"],
     category: row.category ?? "",
     sourceDocument: row.source_document ?? "",
+    extractionJobId: row.extraction_job_id ?? "",
     createdAt: row.created_at ?? "",
   };
 }

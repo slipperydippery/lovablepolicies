@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { EXTRACT_URL } from "@/lib/api";
+import { createDocumentJobs } from "@/lib/api";
 import { Modal } from "@/components/ui/modal";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
   const [resolvedConflicts, setResolvedConflicts] = useState<Record<string, number | null>>({});
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [activating, setActivating] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Dynamic policy state (populated from demo constants or AI response)
   const [extractedReady, setExtractedReady] = useState<ReadyPolicy[]>([]);
@@ -58,6 +59,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
       setCustomValues({});
       setExtractedReady([]);
       setExtractedConflicts([]);
+      setUploading(false);
     }
   }, [open]);
 
@@ -81,53 +83,25 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
   }, [phase, mode]);
 
   const handleProcess = async () => {
-    setResolvedConflicts({});
-    setCustomValues({});
-
     if (mode === "demo") {
+      setResolvedConflicts({});
+      setCustomValues({});
       setPhase("processing");
       return;
     }
 
-    // AI extraction mode
-    setPhase("processing");
+    // AI mode: upload files to document-jobs queue, then close modal
+    setUploading(true);
     try {
-      const formData = new FormData();
-      files.forEach((f) => formData.append("files", f));
-
-      const res = await fetch(EXTRACT_URL, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(err.error || `Server error ${res.status}`);
-      }
-
-      const data = await res.json();
-      const ready: ReadyPolicy[] = (data.readyPolicies || []).map((p: any) => ({
-        ...p,
-        sourceDocument: p.sourceDocuments || p.sourceDocument || undefined,
-      }));
-      const conflicts: ConflictPolicy[] = (data.conflictPolicies || []).map((p: any) => ({
-        ...p,
-        sourceDocument: p.sourceDocuments || p.sourceDocument || undefined,
-      }));
-
-      if (ready.length === 0 && conflicts.length === 0) {
-        toast.error(t("onboarding.noPolicies"));
-        setPhase("upload");
-        return;
-      }
-
-      setExtractedReady(ready);
-      setExtractedConflicts(conflicts);
-      setPhase("results");
+      const result = await createDocumentJobs(files);
+      toast.success(t("onboarding.uploadSuccess", { count: result.jobs.length }));
+      onOpenChange(false);
+      onActivated();
     } catch (e: any) {
-      console.error("extract-policies error:", e);
-      toast.error(t("onboarding.extractFailed"));
-      setPhase("upload");
+      console.error("document-jobs upload error:", e);
+      toast.error(t("onboarding.uploadFailed"));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -188,16 +162,20 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         variant="solid"
         colorScheme="primary"
         className="w-full"
-        disabled={mode === "ai" ? files.length === 0 : false}
+        disabled={mode === "ai" ? (files.length === 0 || uploading) : false}
         onClick={handleProcess}
       >
-        <i className={mode === "demo" ? "fa-solid fa-play" : "fa-solid fa-wand-magic-sparkles"} aria-hidden="true" />
-        {mode === "demo" ? t("onboarding.runDemo") : t("onboarding.extractWithAi")}
+        <i className={mode === "demo" ? "fa-solid fa-play" : "fa-solid fa-cloud-arrow-up"} aria-hidden="true" />
+        {mode === "demo"
+          ? t("onboarding.runDemo")
+          : uploading
+          ? t("common.loading")
+          : t("onboarding.uploadAndQueue")}
       </Button>
     </div>
   );
 
-  // ─── Processing Phase ───
+  // ─── Processing Phase (demo mode only) ───
   const processingContent = (
     <div className="flex flex-col items-center gap-sp-24 py-sp-16">
       <div className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-50">
@@ -207,17 +185,15 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         <Progress indeterminate colorScheme="primary" />
       </div>
       <p className="text-sm font-medium text-foreground animate-pulse">
-        {mode === "demo" ? PROCESSING_STEPS[processingStep] : t("onboarding.extracting")}
+        {PROCESSING_STEPS[processingStep]}
       </p>
       <p className="text-xs text-muted-foreground">
-        {mode === "demo"
-          ? t("onboarding.analyzing", { count: files.length })
-          : t("onboarding.analyzing", { count: files.length })}
+        {t("onboarding.analyzing", { count: files.length })}
       </p>
     </div>
   );
 
-  // ─── Results Phase ───
+  // ─── Results Phase (demo mode only) ───
   const resultsContent = (
     <div className="space-y-sp-16 max-h-[60vh] overflow-y-auto">
       {/* Section: Conflicts */}

@@ -26,7 +26,7 @@ src/
 ├── components/
 │   ├── ui/                  # BEAN design system components (shadcn/ui based)
 │   ├── theme/               # ThemeProvider (dark/light)
-│   ├── OnboardingModal.tsx   # Policy document upload → AI extraction → conflict resolution → activate
+│   ├── OnboardingModal.tsx   # Policy document upload → queue (AI mode) or demo fast path
 │   └── LanguageSwitcher.tsx  # NL | EN toggle
 ├── contexts/
 │   └── ActiveLocationContext.tsx  # Selected care location (defaults to "De VeldKeur")
@@ -36,7 +36,8 @@ src/
 │   ├── mock-suppliers.ts    # 4 approved suppliers (ABENA, Lyreco, Mediq, Technische Unie)
 │   └── onboarding-policies.ts  # 9 ready + 1 conflict policy definitions, DB upsert/reset helpers
 ├── hooks/
-│   └── use-policies.ts      # React Query hook: fetch/update policies via REST API
+│   ├── use-policies.ts      # React Query hook: fetch/update policies via REST API
+│   └── use-document-jobs.ts # React Query hook: poll document processing queue with auto-refresh
 ├── i18n/                    # Translations (nl.json, en.json) + i18next config
 ├── lib/
 │   └── api.ts               # Frontend API client — all DB ops go through here
@@ -54,10 +55,10 @@ src/
 │       ├── BudgetView.tsx   # Per-location budget with ledger drill-down, period toggles, interventions
 │       └── InsightsView.tsx # KPIs (STP, hours reclaimed), friction heatmap, shadow orders
 server/
-├── index.ts                 # Express API: REST endpoints + /api/chat (SSE) + /api/extract-policies
-├── db.ts                    # SQLite init + schema (creates tables on startup)
-├── repo.ts                  # IPolicyRepository interface (swap storage by implementing this)
-├── repo-sqlite.ts           # SQLite implementation of IPolicyRepository
+├── index.ts                 # Express API: REST endpoints + /api/chat (SSE) + document-jobs + background processor
+├── db.ts                    # SQLite init + schema (creates all tables on startup)
+├── repo.ts                  # Repository interfaces: IPolicyRepository, IDocumentJobRepository, IPolicyConflictRepository, IAuditLogRepository
+├── repo-sqlite.ts           # SQLite implementations of all repository interfaces
 └── data/                    # SQLite database file (gitignored)
 public/
 └── demo-documents/          # Sample .txt policy docs for onboarding demo
@@ -84,11 +85,20 @@ public/
 The database uses a **repository pattern** for easy backend swapping. To use a different DB, implement `IPolicyRepository` from `server/repo.ts` and change one import in `server/index.ts`.
 
 ### `policies` table
-Core table. Columns: `id` (text PK, e.g. "POL-2026-041"), `name`, `category`, `status` (active/draft/conflict/deprecated), `max_amount` (text, e.g. "EUR 50,00 per transaction"), `limit_amount` (integer, cents), `friction` (Low/Medium/High), `intent` (text description), `afas_code` (integer, maps to sub-ledger), `ledger`, `benchmark_score`, `benchmark_warning`, `start_date`, `end_date`, `allowed_categories`, `source_document` (text, nullable — comma-separated filename(s) of the document(s) the policy was extracted from; null = manually created), `created_at`, `updated_at`.
+Core table. Columns: `id` (text PK, e.g. "POL-2026-041"), `name`, `category`, `status` (active/pending_review/draft/conflict/deprecated), `max_amount` (text, e.g. "EUR 50,00 per transaction"), `limit_amount` (integer, cents), `friction` (Low/Medium/High), `intent` (text description), `afas_code` (integer, maps to sub-ledger), `ledger`, `benchmark_score`, `benchmark_warning`, `start_date`, `end_date`, `allowed_categories`, `source_document` (text, nullable — filename of the document the policy was extracted from; null = manually created), `extraction_job_id` (text, nullable — links to document_jobs.id), `created_at`, `updated_at`.
+
+### `document_jobs` table
+Document processing queue. Columns: `id` (text PK, e.g. "job-uuid"), `filename`, `file_content` (text, extracted text), `status` (queued/processing/done/error), `policies_extracted` (integer), `error_message`, `created_at`, `completed_at`.
+
+### `policy_conflicts` table
+Conflict links between policies. Columns: `id` (text PK), `policy_a_id`, `policy_b_id`, `conflict_field` (human-readable description), `description`, `resolved` (integer 0/1), `resolved_policy_id`, `created_at`.
+
+### `policy_audit_log` table
+Audit trail for all policy mutations. Columns: `id` (integer PK autoincrement), `policy_id`, `action` (created/conflict_detected/updated/etc), `changes_json`, `source` (e.g. "ai_extraction:job-id"), `created_at`.
 
 ### REST API endpoints
 | Method | Path | Purpose |
-|--------|------|─────────|
+|--------|------|---------|
 | GET | `/api/policies` | List all policies |
 | GET | `/api/policies/:id` | Single policy |
 | PUT | `/api/policies/:id` | Update one policy |
@@ -96,9 +106,15 @@ Core table. Columns: `id` (text PK, e.g. "POL-2026-041"), `name`, `category`, `s
 | DELETE | `/api/policies` | Delete all policies |
 | POST | `/api/policies/benchmarks` | Batch benchmark update |
 | POST | `/api/chat` | AI chat (SSE streaming) |
-| POST | `/api/extract-policies` | PDF/TXT → Claude → JSON |
+| POST | `/api/extract-policies` | Legacy: PDF/TXT → Claude → JSON (used by demo mode) |
+| POST | `/api/document-jobs` | Upload files → create queued jobs → trigger background processing |
+| GET | `/api/document-jobs` | List all document jobs (for polling) |
+| DELETE | `/api/document-jobs` | Delete all document jobs |
+| GET | `/api/policy-conflicts` | List all conflicts |
+| POST | `/api/policy-conflicts/:id/resolve` | Resolve a conflict (mark winner) |
+| DELETE | `/api/policy-conflicts` | Delete all conflicts |
 
-Note: `ledger_categories` and `sub_ledgers` are currently hardcoded mock data in the frontend and server. Only `policies` is persisted.
+Note: `ledger_categories` and `sub_ledgers` are currently hardcoded mock data in the frontend and server. Only `policies`, `document_jobs`, `policy_conflicts`, and `policy_audit_log` are persisted.
 
 ## Key Concepts
 
@@ -108,8 +124,11 @@ Note: `ledger_categories` and `sub_ledgers` are currently hardcoded mock data in
   - `[REGISTER:15.00]` → renders a "Register Purchase" button in the UI
   - `[POLICIES:POL-2026-041,POL-2024-05]` → shows referenced policy cards with expandable details
 - **Onboarding flow**: Two modes via tab toggle in the modal:
-  - **Demo mode**: Fake animated extraction → hardcoded 9 ready + 1 conflict policies (great for demos)
-  - **AI Extraction mode**: Uploads real .pdf/.txt files to `POST /api/extract-policies` → Claude reads documents, extracts atomic policies as structured JSON, detects conflicts → results shown in the same review/conflict-resolution UI → bulk upsert to SQLite via REST API.
+  - **Demo mode**: Fake animated extraction → hardcoded 9 ready + 1 conflict policies → review/resolve in modal → bulk upsert (fast path for demos)
+  - **AI Extraction mode**: Uploads files to `POST /api/document-jobs` → modal closes immediately → files are queued and processed one-by-one in the background → each document is sent individually to Claude for policy extraction → extracted policies inserted as `pending_review` status → conflict detection runs against ALL existing policies (same category + AFAS code + different limit) → conflicts stored in `policy_conflicts` table and both policies marked as `conflict` → all mutations logged to `policy_audit_log`.
+- **Document processing queue**: Visible on PolicyHubView above the policy table. Shows real-time status per document (queued/processing/done/error) with auto-polling every 2 seconds while jobs are active. Policies appear in the table as they are extracted.
+- **Policy lifecycle**: `pending_review` → (admin reviews) → `active`. If conflicts detected: `conflict` → (admin resolves, picks winner) → winner becomes `active`, loser becomes `deprecated`.
+- **Audit log**: Every policy creation and conflict detection is logged with the source job ID. Future: expose audit log in the UI.
 - **Cross-language matching**: Policies are stored in English. The AI system prompt instructs semantic matching regardless of user language (e.g. Dutch "luiers" matches "Incontinence Material").
 
 ## Environment Variables
@@ -134,7 +153,7 @@ Note: `ledger_categories` and `sub_ledgers` are currently hardcoded mock data in
 - **Design system**: Always read `tokens.json` + `ui-manifest.json` before creating UI. Use `sp-` spacing tokens, semantic color classes, Font Awesome icons only. See `Guidelines.md` for full rules.
 - **i18n**: All user-visible strings use `t("dotted.key")`. Add keys to both `nl.json` and `en.json`. Flat dot-notation, no nesting.
 - **DB field mapping**: SQLite uses `snake_case`, frontend uses `camelCase`. The `use-policies.ts` hook handles mapping via `rowToPolicy()` and a `fieldMap` in the mutation.
-- **Repository pattern**: All DB access goes through `IPolicyRepository` (defined in `server/repo.ts`). To swap storage backends, implement the interface and change one import in `server/index.ts`.
+- **Repository pattern**: All DB access goes through repository interfaces (`IPolicyRepository`, `IDocumentJobRepository`, `IPolicyConflictRepository`, `IAuditLogRepository` — all defined in `server/repo.ts`). To swap storage backends, implement the interfaces and change imports in `server/index.ts`.
 - **No authentication**: The app currently has no auth. TODO for future.
 - **Mock data**: Locations, ledger, and suppliers use hardcoded mock data (`src/data/`). Policies are persisted in SQLite. Validation and purchases views use local mock data.
 
