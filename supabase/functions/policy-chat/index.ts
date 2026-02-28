@@ -91,6 +91,7 @@ IMPORTANT RULES:
 - At the very end of your response, add a marker listing every policy ID you referenced: [POLICIES:POL-ID-1,POL-ID-2] (e.g. [POLICIES:POL-2026-041,POL-2026-042]). If no policies were referenced, omit this marker entirely.
 - Do NOT mention policy IDs in the text itself — only put them in the [POLICIES:...] marker.
 - If a supplier is not on the approved list, note that but consider if an exception policy applies.
+- If no active policy clearly covers the requested purchase, do NOT approve it. Instead, advise the user to check with their financial administrator before proceeding. Do NOT include the [REGISTER:...] marker in this case.
 - Always respond in **${responseLang}**.
 
 CROSS-LANGUAGE MATCHING:

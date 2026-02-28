@@ -155,8 +155,11 @@ async function streamChat({
 function useSpeechRecognition(onResult: (text: string) => void) {
   const [listening, setListening] = useState(false);
   const recRef = useRef<any>(null);
+  const { i18n } = useTranslation();
 
   const supported = typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
+
+  const speechLang = i18n.language?.startsWith("nl") ? "nl-NL" : "en-US";
 
   const toggle = useCallback(() => {
     if (!supported) return;
@@ -166,7 +169,7 @@ function useSpeechRecognition(onResult: (text: string) => void) {
     }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
-    rec.lang = "nl-NL";
+    rec.lang = speechLang;
     rec.interimResults = false;
     rec.onresult = (e: any) => {
       const text = e.results[0][0].transcript;
@@ -177,7 +180,7 @@ function useSpeechRecognition(onResult: (text: string) => void) {
     recRef.current = rec;
     rec.start();
     setListening(true);
-  }, [listening, onResult, supported]);
+  }, [listening, onResult, supported, speechLang]);
 
   return { listening, toggle, supported };
 }
