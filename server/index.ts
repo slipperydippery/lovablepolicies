@@ -8,6 +8,8 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 dotenv.config();
 import express, { Request, Response } from "express";
 import cors from "cors";
+import multer from "multer";
+import { PDFParse } from "pdf-parse";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 
@@ -16,9 +18,12 @@ app.use(cors({
   origin: [
     "https://lovablepolicies.vercel.app",
     "http://localhost:8080",
+    "http://localhost:8081",
   ],
 }));
 app.use(express.json());
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const PORT = process.env.PORT || 3001;
 
@@ -174,6 +179,120 @@ CROSS-LANGUAGE MATCHING:
     if (!res.headersSent) {
       res.status(500).json({ error: e.message || "Unknown error" });
     }
+  }
+});
+
+// ── Extract policies endpoint ───────────────────────────────────────
+
+app.post("/api/extract-policies", upload.array("files", 20), async (req: Request, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
+
+    // Extract text from each file
+    const documents: { name: string; content: string }[] = [];
+    for (const file of files) {
+      let text: string;
+      if (file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf")) {
+        const pdfParser = new PDFParse({ data: new Uint8Array(file.buffer) });
+        const parsed = await pdfParser.getText();
+        text = parsed.text;
+      } else {
+        text = file.buffer.toString("utf-8");
+      }
+      documents.push({ name: file.originalname, content: text });
+    }
+
+    const documentsContext = documents
+      .map((d) => `=== DOCUMENT: "${d.name}" ===\n${d.content}\n=== END OF "${d.name}" ===`)
+      .join("\n\n");
+
+    const systemPrompt = `You are a policy extraction engine for a Dutch healthcare procurement system.
+
+Your task: Read the uploaded policy documents and extract every atomic purchasing rule into structured JSON.
+
+OUTPUT FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
+{
+  "readyPolicies": [
+    {
+      "id": "POL-2026-XXX",
+      "name": "Short English policy name",
+      "category": "Category name",
+      "maxAmount": "EUR XX,XX per unit (human-readable)",
+      "friction": "Low" | "Medium" | "High",
+      "afasCode": 4XXX,
+      "intent": "One-sentence description of what this policy allows or restricts.",
+      "limitAmount": 50,
+      "benchmarkScore": "Matches VVT Standard" or similar,
+      "benchmarkWarning": false,
+      "startDate": "2026-01-01",
+      "endDate": "2026-12-31"
+    }
+  ],
+  "conflictPolicies": [
+    {
+      "id": "POL-2026-XXX",
+      "name": "Short English policy name",
+      "category": "Category name",
+      "friction": "Low" | "Medium" | "High",
+      "afasCode": 4XXX,
+      "intent": "One-sentence description.",
+      "conflictField": "Human-readable field name (e.g. Max spend per birthday)",
+      "sourceA": { "label": "Document name A", "value": 15, "display": "EUR 15" },
+      "sourceB": { "label": "Document name B", "value": 25, "display": "EUR 25" },
+      "benchmark": { "label": "Sector avg", "value": 20, "display": "EUR 20" }
+    }
+  ]
+}
+
+RULES:
+1. Extract every distinct purchasing rule as a separate policy.
+2. If TWO OR MORE documents specify DIFFERENT values for the same rule (e.g. different spending limits), put it in "conflictPolicies" with sourceA/sourceB referencing the document names and their respective values. Provide a reasonable benchmark suggestion.
+3. If a rule appears in multiple documents with CONSISTENT values, or only in one document, put it in "readyPolicies".
+4. Generate unique policy IDs in format POL-2026-XXX (increment from 041).
+5. Map each policy to a plausible AFAS ledger code:
+   - 4110 = Nutrition, 4120 = Meals by third parties, 4130 = Beverages & Snacks
+   - 4210 = Groceries, 4230 = Office Supplies
+   - 4310 = Incontinence Materials, 4320 = Pharmaceuticals, 4330 = Medical Aids, 4340 = Recreation
+   - 4510 = Travel & Transport, 4600 = Temporary Staff
+6. Friction levels: Low = under EUR 50 / auto-approve, Medium = EUR 50-150 / needs awareness, High = above EUR 150 or requires approval.
+7. Policy names and all fields MUST be in English.
+8. limitAmount should be the numeric euro value (integer). Use 0 if no per-transaction limit.
+9. Dates: use reasonable defaults (startDate = 2026-01-01, endDate = 2026-12-31) unless the document specifies dates.
+10. Return ONLY the JSON object. No markdown, no commentary.`;
+
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: "user", content: documentsContext }],
+    });
+
+    // Extract text from response
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      return res.status(500).json({ error: "No text response from AI" });
+    }
+
+    // Parse JSON — strip markdown fences if Claude adds them despite instructions
+    let jsonStr = textBlock.text.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+
+    const parsed = JSON.parse(jsonStr);
+
+    // Validate basic shape
+    if (!Array.isArray(parsed.readyPolicies) || !Array.isArray(parsed.conflictPolicies)) {
+      return res.status(500).json({ error: "AI returned invalid policy structure" });
+    }
+
+    res.json(parsed);
+  } catch (e: any) {
+    console.error("extract-policies error:", e);
+    res.status(500).json({ error: e.message || "Unknown error" });
   }
 });
 

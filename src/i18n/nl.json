@@ -262,5 +262,13 @@
   "onboarding.extractingRules": "Inkoopregels extraheren...",
   "onboarding.mappingAfas": "Koppelen aan AFAS-grootboeken...",
   "onboarding.detectingConflicts": "Conflicten detecteren...",
-  "onboarding.vs": "vs."
+  "onboarding.vs": "vs.",
+  "onboarding.modeDemo": "Demo",
+  "onboarding.modeAi": "AI Extractie",
+  "onboarding.runDemo": "Demo Starten",
+  "onboarding.extractWithAi": "Beleidsregels Extraheren met AI",
+  "onboarding.extracting": "Beleidsregels extraheren…",
+  "onboarding.extractFailed": "Beleidsregels extraheren uit documenten mislukt.",
+  "onboarding.noConflicts": "Geen conflicten gedetecteerd",
+  "onboarding.noPolicies": "Er zijn geen beleidsregels geëxtraheerd. Probeer andere documenten te uploaden."
 }

@@ -54,7 +54,7 @@ src/
 │       ├── BudgetView.tsx   # Per-location budget with ledger drill-down, period toggles, interventions
 │       └── InsightsView.tsx # KPIs (STP, hours reclaimed), friction heatmap, shadow orders
 server/
-└── index.ts                 # Express API: /api/chat endpoint (Anthropic Claude, SSE streaming)
+└── index.ts                 # Express API: /api/chat (SSE streaming) + /api/extract-policies (PDF/TXT → Claude → JSON)
 supabase/
 ├── functions/policy-chat/   # Deno edge function: same chat logic using Lovable AI gateway
 └── migrations/              # Postgres: policies, ledger_categories, sub_ledgers tables
@@ -96,7 +96,9 @@ Sub-ledger line items: `id`, `category_id` (FK), `code` (e.g. 4310), `name`, `bu
 - **Chat markers**: The AI chat uses hidden markers in responses:
   - `[REGISTER:15.00]` → renders a "Register Purchase" button in the UI
   - `[POLICIES:POL-2026-041,POL-2024-05]` → shows referenced policy cards with expandable details
-- **Onboarding flow**: Upload policy documents → simulated AI extraction → show ready policies + conflicts → resolve conflicts (pick Source A, B, benchmark, or custom) → bulk upsert to Supabase.
+- **Onboarding flow**: Two modes via tab toggle in the modal:
+  - **Demo mode**: Fake animated extraction → hardcoded 9 ready + 1 conflict policies (great for demos)
+  - **AI Extraction mode**: Uploads real .pdf/.txt files to `POST /api/extract-policies` → Claude reads documents, extracts atomic policies as structured JSON, detects conflicts → results shown in the same review/conflict-resolution UI → bulk upsert to Supabase.
 - **Cross-language matching**: Policies are stored in English. The AI system prompt instructs semantic matching regardless of user language (e.g. Dutch "luiers" matches "Incontinence Material").
 
 ## Environment Variables
@@ -109,7 +111,7 @@ Sub-ledger line items: `id`, `category_id` (FK), `code` (e.g. 4310), `name`, `bu
 ### Server (`server/`)
 - `SUPABASE_URL` / `VITE_SUPABASE_URL` — Supabase URL (tries both)
 - `SUPABASE_PUBLISHABLE_KEY` / `VITE_SUPABASE_PUBLISHABLE_KEY` — Supabase anon key
-- `ANTHROPIC_API_KEY` — For Claude chat
+- `ANTHROPIC_API_KEY` — For Claude chat + policy extraction
 - `PORT` — Server port (default 3001)
 
 ### Supabase Edge Function

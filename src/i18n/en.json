@@ -262,5 +262,13 @@
   "onboarding.extractingRules": "Extracting purchasing rules...",
   "onboarding.mappingAfas": "Mapping to AFAS ledgers...",
   "onboarding.detectingConflicts": "Detecting conflicts...",
-  "onboarding.vs": "vs."
+  "onboarding.vs": "vs.",
+  "onboarding.modeDemo": "Demo",
+  "onboarding.modeAi": "AI Extraction",
+  "onboarding.runDemo": "Run Demo",
+  "onboarding.extractWithAi": "Extract Policies with AI",
+  "onboarding.extracting": "Extracting policies…",
+  "onboarding.extractFailed": "Failed to extract policies from documents.",
+  "onboarding.noConflicts": "No conflicts detected",
+  "onboarding.noPolicies": "No policies were extracted. Try uploading different documents."
 }

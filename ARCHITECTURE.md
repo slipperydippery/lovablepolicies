@@ -54,7 +54,9 @@ The policy management center:
 - **Search**: Free-text filter across policy fields
 - **Sortable columns** with click-to-sort
 - **Detail sidebar**: Click a row to open an editable panel with: Intent, Max Amount, Start/End Date, AFAS Code mapping (dropdown of ledger codes), Status toggle, Benchmark score
-- **Onboarding flow** (triggered via "Add Document" button): Upload policy documents → simulated AI extraction → review extracted policies → resolve conflicts between document sources → bulk activate to database
+- **Onboarding flow** (triggered via "Add Document" button): Two modes via tab toggle:
+  - **Demo mode**: Simulated AI extraction with hardcoded 9 ready + 1 conflict policies
+  - **AI Extraction mode**: Upload real .pdf/.txt files → server-side text extraction (pdf-parse for PDFs) → Claude extracts atomic policies as structured JSON → review + resolve conflicts → bulk activate to database
 - **Benchmarking**: One-click button to populate benchmark scores from sector standards
 - **Reset**: Delete all policies for demo purposes
 
@@ -174,11 +176,23 @@ User types question
 ```
 Admin clicks "Add Document" in Policy Hub
   → OnboardingModal opens
+  → Choose mode: "Demo" (default) or "AI Extraction"
+
+Demo mode:
+  → Click "Run Demo" (files optional)
+  → Animated processing steps (fake)
+  → Show hardcoded results: 9 ready + 1 conflict
+
+AI Extraction mode:
   → Upload .pdf/.txt policy documents
-  → Click "Process & Generate"
-  → Simulated AI extraction (animated steps)
-  → Show results: 9 ready policies (green) + 1 conflict (orange)
-  → Admin resolves conflict (pick Source A, Source B, benchmark, or custom value)
+  → Click "Extract Policies with AI"
+  → POST /api/extract-policies (multipart/form-data)
+  → Server: pdf-parse for PDFs, UTF-8 for .txt
+  → Claude extracts atomic policies as structured JSON
+  → Show AI-extracted results: ready policies (green) + conflicts (orange)
+
+Both modes then:
+  → Admin resolves conflicts (pick Source A, Source B, benchmark, or custom value)
   → Click "Activate All"
   → upsertPolicies() → Supabase policies table
   → Policy Hub table refreshes via React Query invalidation
@@ -244,7 +258,7 @@ npm run dev          # → http://localhost:3001
 | Supplier data | ⚠️ Duplicated | Same list hardcoded in frontend mocks + both backends |
 | Ledger data | ⚠️ Duplicated | Same list in frontend mocks + both backends |
 | Multi-tenancy | ❌ Not implemented | Single-org, location switching is cosmetic |
-| Onboarding AI | ⚠️ Simulated | Document parsing is animated but not real AI extraction |
+| Onboarding AI | ✅ Dual mode | Demo mode (simulated) + real AI extraction via Claude |
 
 ## 9. Keeping Documentation Updated
 

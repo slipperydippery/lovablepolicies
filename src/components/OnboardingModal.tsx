@@ -6,14 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { Tabs } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import {
   READY_POLICIES,
   CONFLICT_POLICIES,
   upsertPolicies,
+  type ReadyPolicy,
+  type ConflictPolicy,
 } from "@/data/onboarding-policies";
 
 type Phase = "upload" | "processing" | "results";
+type Mode = "demo" | "ai";
+
+const EXTRACT_URL = import.meta.env.VITE_CHAT_API_URL
+  ? `${new URL(import.meta.env.VITE_CHAT_API_URL).origin}/api/extract-policies`
+  : "http://localhost:3001/api/extract-policies";
 
 interface OnboardingModalProps {
   open: boolean;
@@ -31,12 +39,17 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
     t("onboarding.detectingConflicts"),
   ];
 
+  const [mode, setMode] = useState<Mode>("demo");
   const [phase, setPhase] = useState<Phase>("upload");
   const [files, setFiles] = useState<File[]>([]);
   const [processingStep, setProcessingStep] = useState(0);
   const [resolvedConflicts, setResolvedConflicts] = useState<Record<string, number | null>>({});
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [activating, setActivating] = useState(false);
+
+  // Dynamic policy state (populated from demo constants or AI response)
+  const [extractedReady, setExtractedReady] = useState<ReadyPolicy[]>([]);
+  const [extractedConflicts, setExtractedConflicts] = useState<ConflictPolicy[]>([]);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -46,12 +59,14 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
       setProcessingStep(0);
       setResolvedConflicts({});
       setCustomValues({});
+      setExtractedReady([]);
+      setExtractedConflicts([]);
     }
   }, [open]);
 
-  // Processing animation
+  // Processing animation (demo mode only)
   useEffect(() => {
-    if (phase !== "processing") return;
+    if (phase !== "processing" || mode !== "demo") return;
     setProcessingStep(0);
     let i = 0;
     const interval = setInterval(() => {
@@ -60,16 +75,57 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         setProcessingStep(i);
       } else {
         clearInterval(interval);
+        setExtractedReady(READY_POLICIES);
+        setExtractedConflicts(CONFLICT_POLICIES);
         setPhase("results");
       }
     }, 800);
     return () => clearInterval(interval);
-  }, [phase]);
+  }, [phase, mode]);
 
-  const handleProcess = () => {
+  const handleProcess = async () => {
     setResolvedConflicts({});
     setCustomValues({});
+
+    if (mode === "demo") {
+      setPhase("processing");
+      return;
+    }
+
+    // AI extraction mode
     setPhase("processing");
+    try {
+      const formData = new FormData();
+      files.forEach((f) => formData.append("files", f));
+
+      const res = await fetch(EXTRACT_URL, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(err.error || `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const ready: ReadyPolicy[] = data.readyPolicies || [];
+      const conflicts: ConflictPolicy[] = data.conflictPolicies || [];
+
+      if (ready.length === 0 && conflicts.length === 0) {
+        toast.error(t("onboarding.noPolicies"));
+        setPhase("upload");
+        return;
+      }
+
+      setExtractedReady(ready);
+      setExtractedConflicts(conflicts);
+      setPhase("results");
+    } catch (e: any) {
+      console.error("extract-policies error:", e);
+      toast.error(t("onboarding.extractFailed"));
+      setPhase("upload");
+    }
   };
 
   const handleQuickPick = (policyId: string, val: number) => {
@@ -84,7 +140,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
     }
   };
 
-  const allConflictsResolved = CONFLICT_POLICIES.every(
+  const allConflictsResolved = extractedConflicts.length === 0 || extractedConflicts.every(
     (p) => resolvedConflicts[p.id] != null
   );
 
@@ -94,7 +150,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
       const resolved = Object.fromEntries(
         Object.entries(resolvedConflicts).filter(([, v]) => v != null)
       ) as Record<string, number>;
-      const count = await upsertPolicies(READY_POLICIES, CONFLICT_POLICIES, resolved);
+      const count = await upsertPolicies(extractedReady, extractedConflicts, resolved);
       toast.success(t("onboarding.activated", { count }));
       onOpenChange(false);
       onActivated();
@@ -108,6 +164,15 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
   // ─── Upload Phase ───
   const uploadContent = (
     <div className="space-y-sp-16">
+      <Tabs
+        items={[
+          { label: t("onboarding.modeDemo"), value: "demo", icon: "fa-solid fa-play" },
+          { label: t("onboarding.modeAi"), value: "ai", icon: "fa-solid fa-wand-magic-sparkles" },
+        ]}
+        value={mode}
+        onValueChange={(v) => setMode(v as Mode)}
+        showContent={false}
+      />
       <FileUpload
         value={files}
         onChange={(f) => setFiles(f ? (Array.isArray(f) ? f : [f]) : [])}
@@ -120,11 +185,11 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         variant="solid"
         colorScheme="primary"
         className="w-full"
-        disabled={files.length === 0}
+        disabled={mode === "ai" ? files.length === 0 : false}
         onClick={handleProcess}
       >
-        <i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true" />
-        {t("onboarding.processGenerate")}
+        <i className={mode === "demo" ? "fa-solid fa-play" : "fa-solid fa-wand-magic-sparkles"} aria-hidden="true" />
+        {mode === "demo" ? t("onboarding.runDemo") : t("onboarding.extractWithAi")}
       </Button>
     </div>
   );
@@ -139,10 +204,12 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         <Progress indeterminate colorScheme="primary" />
       </div>
       <p className="text-sm font-medium text-foreground animate-pulse">
-        {PROCESSING_STEPS[processingStep]}
+        {mode === "demo" ? PROCESSING_STEPS[processingStep] : t("onboarding.extracting")}
       </p>
       <p className="text-xs text-muted-foreground">
-        {t("onboarding.analyzing", { count: files.length })}
+        {mode === "demo"
+          ? t("onboarding.analyzing", { count: files.length })
+          : t("onboarding.analyzing", { count: files.length })}
       </p>
     </div>
   );
@@ -151,11 +218,13 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
   const resultsContent = (
     <div className="space-y-sp-16 max-h-[60vh] overflow-y-auto">
       {/* Section: Conflicts */}
+      {extractedConflicts.length > 0 && (
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-        {t("onboarding.conflictsToResolve", { count: CONFLICT_POLICIES.length })}
+        {t("onboarding.conflictsToResolve", { count: extractedConflicts.length })}
       </p>
+      )}
 
-      {CONFLICT_POLICIES.map((p) => {
+      {extractedConflicts.map((p) => {
         const resolved = resolvedConflicts[p.id] != null;
         const resolvedVal = resolvedConflicts[p.id];
         return (
@@ -278,10 +347,10 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
 
       {/* Section: Ready */}
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-sp-8">
-        {t("onboarding.readyToActivate", { count: READY_POLICIES.length })}
+        {t("onboarding.readyToActivate", { count: extractedReady.length })}
       </p>
 
-      {READY_POLICIES.map((p) => (
+      {extractedReady.map((p) => (
         <div
           key={p.id}
           className="rounded-lg border border-grey-200 dark:border-grey-700 bg-white dark:bg-grey-900 p-sp-16 border-l-4 border-l-success"
@@ -316,7 +385,7 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         <i className="fa-solid fa-rocket" aria-hidden="true" />
         {activating
           ? t("onboarding.activating")
-          : t("onboarding.activateCount", { count: READY_POLICIES.length + CONFLICT_POLICIES.length })}
+          : t("onboarding.activateCount", { count: extractedReady.length + extractedConflicts.length })}
       </Button>
     </div>
   );
