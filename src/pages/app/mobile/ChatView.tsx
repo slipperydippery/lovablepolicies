@@ -118,9 +118,11 @@ async function streamChat({
 
       try {
         const parsed = JSON.parse(json);
+        if (parsed.error) throw new Error(parsed.error);
         const content = parsed.choices?.[0]?.delta?.content as string | undefined;
         if (content) onDelta(content);
-      } catch {
+      } catch (e) {
+        if (e instanceof Error && e.message) throw e;
         buffer = line + "\n" + buffer;
         break;
       }

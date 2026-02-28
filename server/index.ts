@@ -28,11 +28,16 @@ const auditRepo: IAuditLogRepository = new SqliteAuditLogRepository(db);
 
 const app = express();
 app.use(cors({
-  origin: [
-    "https://lovablepolicies.vercel.app",
-    "http://localhost:8080",
-    "http://localhost:8081",
-  ],
+  origin(origin, callback) {
+    // Allow requests with no origin (e.g. curl, mobile apps)
+    if (!origin) return callback(null, true);
+    // Allow all localhost / 127.0.0.1 ports for local development
+    if (origin.match(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/)) return callback(null, true);
+    // Production frontend
+    if (origin === "https://lovablepolicies.vercel.app") return callback(null, true);
+    console.warn("CORS blocked origin:", origin);
+    callback(new Error("Not allowed by CORS"));
+  },
 }));
 app.use(express.json());
 
@@ -72,9 +77,16 @@ const LEDGER = [
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
+// Prevent unhandled rejections from crashing the process (e.g. stream abort)
+process.on("unhandledRejection", (err: any) => {
+  if (err?.name === "APIUserAbortError") return; // client disconnected — safe to ignore
+  console.error("Unhandled rejection:", err);
+});
+
 // ── Chat endpoint ───────────────────────────────────────────────────
 
 app.post("/api/chat", async (req: Request, res: Response) => {
+  console.log("[chat] Received chat request");
   try {
     const { messages, locationName, language } = req.body as {
       messages: { role: string; content: string }[];
@@ -148,7 +160,7 @@ CROSS-LANGUAGE MATCHING:
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    // Stream from Anthropic
+    // Stream from Anthropic using the async iterator API (works across SDK versions)
     const stream = anthropic.messages.stream({
       model: "claude-sonnet-4-20250514",
       max_tokens: 1024,
@@ -156,29 +168,34 @@ CROSS-LANGUAGE MATCHING:
       messages: anthropicMessages,
     });
 
-    stream.on("text", (text: string) => {
-      // Emit in OpenAI-compatible SSE format so the frontend parser works unchanged
-      const chunk = JSON.stringify({
-        choices: [{ delta: { content: text } }],
-      });
-      res.write(`data: ${chunk}\n\n`);
+    // Handle client disconnect
+    let aborted = false;
+    req.on("close", () => {
+      aborted = true;
+      try { stream.abort(); } catch { /* client disconnected — safe to ignore */ }
     });
 
-    stream.on("end", () => {
+    try {
+      for await (const event of stream) {
+        if (aborted) break;
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          const chunk = JSON.stringify({
+            choices: [{ delta: { content: event.delta.text } }],
+          });
+          res.write(`data: ${chunk}\n\n`);
+        }
+      }
+    } catch (streamErr: any) {
+      if (!aborted) {
+        console.error("Anthropic stream error:", streamErr);
+        res.write(`data: ${JSON.stringify({ error: streamErr.message })}\n\n`);
+      }
+    }
+
+    if (!aborted) {
       res.write("data: [DONE]\n\n");
       res.end();
-    });
-
-    stream.on("error", (err: Error) => {
-      console.error("Anthropic stream error:", err);
-      res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-      res.end();
-    });
-
-    // Handle client disconnect
-    req.on("close", () => {
-      stream.abort();
-    });
+    }
   } catch (e: any) {
     console.error("chat error:", e);
     if (!res.headersSent) {
