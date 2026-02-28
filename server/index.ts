@@ -293,6 +293,15 @@ app.get("/api/document-jobs", (_req: Request, res: Response) => {
   }
 });
 
+app.post("/api/document-jobs/:id/cancel", (req: Request, res: Response) => {
+  try {
+    jobRepo.cancel(req.params.id as string);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete("/api/document-jobs", (_req: Request, res: Response) => {
   try {
     const count = jobRepo.deleteAll();
@@ -317,6 +326,25 @@ app.post("/api/policy-conflicts/:id/resolve", (req: Request, res: Response) => {
   try {
     const { resolved_policy_id } = req.body as { resolved_policy_id: string };
     conflictRepo.resolve(req.params.id as string, resolved_policy_id);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/policy-conflicts/:id/resolve-both", (req: Request, res: Response) => {
+  try {
+    const conflicts = conflictRepo.getAll();
+    const conflict = conflicts.find((c) => c.id === req.params.id);
+    if (!conflict) return res.status(404).json({ error: "Conflict not found" });
+
+    // Mark conflict as resolved (use policy_a as nominal winner)
+    conflictRepo.resolve(conflict.id, conflict.policy_a_id);
+
+    // Set both policies to active
+    policyRepo.update(conflict.policy_a_id, { status: "active" });
+    policyRepo.update(conflict.policy_b_id, { status: "active" });
+
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -404,10 +432,11 @@ OUTPUT FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
       "maxAmount": "EUR XX,XX per unit (human-readable)",
       "friction": "Low" | "Medium" | "High",
       "afasCode": 4XXX,
-      "intent": "One-sentence description of what this policy allows or restricts.",
+      "intent": "2-3 sentence description of what this policy allows or restricts, including relevant conditions, thresholds, approval requirements, and context from the source document.",
       "limitAmount": 50,
       "startDate": "2026-01-01",
-      "endDate": "2026-12-31"
+      "endDate": "2026-12-31",
+      "tags": ["tag1", "tag2", "tag3"]
     }
   ]
 }
@@ -424,7 +453,9 @@ RULES:
 5. Policy names and all fields MUST be in English.
 6. limitAmount should be the numeric euro value (integer). Use 0 if no per-transaction limit.
 7. Dates: use reasonable defaults (startDate = 2026-01-01, endDate = 2026-12-31) unless the document specifies dates.
-8. Return ONLY the JSON object. No markdown, no commentary.`;
+8. The "intent" field MUST be 2-3 sentences. Include the specific conditions, who it applies to, what is allowed/restricted, and any approval or escalation requirements mentioned in the source document.
+9. The "tags" field MUST contain 3-5 lowercase hyphenated tags describing the specific subject matter and item type of the policy. Tags should be specific enough to distinguish between different product types within the same category. For example: ["ergonomic", "office-chair", "furniture"] or ["customer-gift", "client-relations", "hospitality"]. Do NOT use generic tags like "procurement" or "policy".
+10. Return ONLY the JSON object. No markdown, no commentary.`;
 
 // ── Background document processor ────────────────────────────────────
 
@@ -444,6 +475,14 @@ async function processNextJob() {
     return;
   }
 
+  // Check if job was cancelled before we start
+  const freshJob = jobRepo.getById(job.id);
+  if (!freshJob || freshJob.status === "cancelled") {
+    console.log(`[processor] Skipping cancelled job ${job.id}`);
+    setTimeout(() => processNextJob(), 100);
+    return;
+  }
+
   console.log(`[processor] Starting job ${job.id}: ${job.filename}`);
   jobRepo.updateStatus(job.id, "processing");
 
@@ -460,6 +499,14 @@ async function processNextJob() {
       }],
     });
 
+    // Check if cancelled during AI call
+    const jobAfterAI = jobRepo.getById(job.id);
+    if (jobAfterAI?.status === "cancelled") {
+      console.log(`[processor] Job ${job.id} cancelled during extraction`);
+      setTimeout(() => processNextJob(), 100);
+      return;
+    }
+
     const textBlock = response.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
       throw new Error("No text response from AI");
@@ -473,7 +520,7 @@ async function processNextJob() {
     const parsed = JSON.parse(jsonStr);
     const extractedPolicies: any[] = parsed.policies || [];
 
-    // Generate IDs and insert policies as pending_review
+    // Generate IDs and insert policies one-by-one as pending_review
     const existingIds = policyRepo.getAll().map((p) => p.id);
     let idCounter = existingIds.length > 0
       ? Math.max(...existingIds.map((id) => {
@@ -482,9 +529,14 @@ async function processNextJob() {
         })) + 1
       : 41;
 
-    const newPolicyRows = extractedPolicies.map((p: any) => {
+    let insertedCount = 0;
+
+    for (const p of extractedPolicies) {
       const policyId = `POL-2026-${String(idCounter++).padStart(3, "0")}`;
-      return {
+      const tagsArray: string[] = Array.isArray(p.tags) ? p.tags : [];
+      const tagsStr = tagsArray.length > 0 ? JSON.stringify(tagsArray) : null;
+
+      const row = {
         id: policyId,
         name: p.name,
         category: p.category ?? null,
@@ -502,75 +554,85 @@ async function processNextJob() {
         start_date: p.startDate ?? null,
         end_date: p.endDate ?? null,
         extraction_job_id: job.id,
+        tags: tagsStr,
       };
-    });
 
-    if (newPolicyRows.length > 0) {
-      policyRepo.upsert(newPolicyRows);
+      // Insert this policy immediately
+      policyRepo.upsert([row]);
+      insertedCount++;
 
-      // Audit log for each new policy
-      for (const row of newPolicyRows) {
-        auditRepo.log({
-          policy_id: row.id,
-          action: "created",
-          changes_json: JSON.stringify(row),
-          source: `ai_extraction:${job.id}`,
-        });
-      }
-    }
+      // Update job count so frontend sees progress
+      jobRepo.updateStatus(job.id, "processing", { policies_extracted: insertedCount });
 
-    // ── Conflict detection against ALL existing policies ──────────
-    const allPolicies = policyRepo.getAll();
-    const newIds = new Set(newPolicyRows.map((r) => r.id));
+      // Audit log
+      auditRepo.log({
+        policy_id: row.id,
+        action: "created",
+        changes_json: JSON.stringify(row),
+        source: `ai_extraction:${job.id}`,
+      });
 
-    for (const newRow of newPolicyRows) {
-      for (const existing of allPolicies) {
-        // Skip self-comparison
-        if (existing.id === newRow.id) continue;
-        // Skip deprecated policies
-        if (existing.status === "deprecated") continue;
+      // ── Conflict detection via tag overlap ──────────────────────
+      if (tagsArray.length > 0 && row.limit_amount > 0) {
+        const allPolicies = policyRepo.getAll();
+        const existingConflicts = conflictRepo.getAll();
 
-        // Detect conflict: same category + same AFAS code but different limit amounts
-        if (
-          existing.category === newRow.category &&
-          existing.afas_code === newRow.afas_code &&
-          existing.limit_amount !== null &&
-          newRow.limit_amount !== null &&
-          existing.limit_amount !== newRow.limit_amount &&
-          existing.limit_amount > 0 &&
-          newRow.limit_amount > 0
-        ) {
+        for (const existing of allPolicies) {
+          if (existing.id === row.id) continue;
+          if (existing.status === "deprecated") continue;
+          if (existing.limit_amount === null || existing.limit_amount === 0) continue;
+          if (existing.limit_amount === row.limit_amount) continue;
+
+          // Parse existing policy tags
+          let existingTags: string[] = [];
+          try {
+            if (existing.tags) existingTags = JSON.parse(existing.tags);
+          } catch {}
+          if (existingTags.length === 0) continue;
+
+          // Compute tag overlap
+          const overlap = tagsArray.filter((t) => existingTags.includes(t));
+          if (overlap.length < 2) continue;
+
+          // Check if conflict already exists for this pair (either direction)
+          const alreadyExists = existingConflicts.some(
+            (c) =>
+              !c.resolved &&
+              ((c.policy_a_id === existing.id && c.policy_b_id === row.id) ||
+               (c.policy_a_id === row.id && c.policy_b_id === existing.id))
+          );
+          if (alreadyExists) continue;
+
           const conflictId = `conflict-${crypto.randomUUID()}`;
           conflictRepo.create({
             id: conflictId,
             policy_a_id: existing.id,
-            policy_b_id: newRow.id,
-            conflict_field: `Limit amount: ${existing.max_amount || existing.limit_amount} vs ${newRow.max_amount || newRow.limit_amount}`,
-            description: `Both policies cover "${newRow.category}" (AFAS ${newRow.afas_code}) but specify different spending limits. Source: "${existing.source_document || 'existing'}" vs "${newRow.source_document || 'new document'}"`,
+            policy_b_id: row.id,
+            conflict_field: `Limit amount: ${existing.max_amount || existing.limit_amount} vs ${row.max_amount || row.limit_amount}`,
+            description: `Overlapping tags: [${overlap.join(", ")}]. "${existing.name}" (${existing.source_document || "existing"}) vs "${row.name}" (${row.source_document || "new"}).`,
           });
 
-          // Mark both as conflict status
           policyRepo.update(existing.id, { status: "conflict" });
-          policyRepo.update(newRow.id, { status: "conflict" });
+          policyRepo.update(row.id, { status: "conflict" });
 
           auditRepo.log({
             policy_id: existing.id,
             action: "conflict_detected",
-            changes_json: JSON.stringify({ conflict_with: newRow.id, conflict_id: conflictId }),
+            changes_json: JSON.stringify({ conflict_with: row.id, conflict_id: conflictId, overlapping_tags: overlap }),
             source: `ai_extraction:${job.id}`,
           });
           auditRepo.log({
-            policy_id: newRow.id,
+            policy_id: row.id,
             action: "conflict_detected",
-            changes_json: JSON.stringify({ conflict_with: existing.id, conflict_id: conflictId }),
+            changes_json: JSON.stringify({ conflict_with: existing.id, conflict_id: conflictId, overlapping_tags: overlap }),
             source: `ai_extraction:${job.id}`,
           });
         }
       }
     }
 
-    jobRepo.updateStatus(job.id, "done", { policies_extracted: newPolicyRows.length });
-    console.log(`[processor] Completed job ${job.id}: extracted ${newPolicyRows.length} policies`);
+    jobRepo.updateStatus(job.id, "done", { policies_extracted: insertedCount });
+    console.log(`[processor] Completed job ${job.id}: extracted ${insertedCount} policies`);
   } catch (e: any) {
     console.error(`[processor] Failed job ${job.id}:`, e);
     jobRepo.updateStatus(job.id, "error", { error_message: e.message || "Unknown error" });

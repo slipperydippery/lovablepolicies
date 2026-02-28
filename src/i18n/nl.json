@@ -122,6 +122,7 @@
   "policyHub.resolveKeepThis": "Dit Beleid Behouden",
   "policyHub.resolveKeepOther": "Ander Beleid Behouden",
   "policyHub.conflictResolved": "Conflict opgelost.",
+  "policyHub.conflictReason": "Reden",
   "policyHub.allRemoved": "Alle beleidsregels verwijderd.",
   "policyHub.removeFailed": "Beleidsregels verwijderen mislukt.",
   "policyHub.benchmarked": "{{count}} beleidsregels gebenchmarkt tegen sectorstandaarden.",
@@ -298,5 +299,10 @@
   "queue.error": "Fout",
   "queue.policiesExtracted": "{{count}} beleidsregels geëxtraheerd",
   "queue.clearCompleted": "Voltooide Wissen",
-  "queue.noJobs": "Geen documenten in de wachtrij."
+  "queue.noJobs": "Geen documenten in de wachtrij.",
+  "queue.cancel": "Annuleren",
+  "queue.cancelled": "Geannuleerd",
+
+  "policyHub.resolveKeepBoth": "Beide Behouden",
+  "policyHub.labelTags": "Tags"
 }

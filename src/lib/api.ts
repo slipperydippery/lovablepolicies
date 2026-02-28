@@ -24,6 +24,7 @@ export interface PolicyRow {
   end_date: string | null;
   valid_until: string | null;
   extraction_job_id: string | null;
+  tags: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -31,7 +32,7 @@ export interface PolicyRow {
 export interface DocumentJobRow {
   id: string;
   filename: string;
-  status: "queued" | "processing" | "done" | "error";
+  status: "queued" | "processing" | "done" | "error" | "cancelled";
   policies_extracted: number;
   error_message: string | null;
   created_at: string | null;
@@ -113,6 +114,13 @@ export async function fetchDocumentJobs(): Promise<DocumentJobRow[]> {
   return handleResponse<DocumentJobRow[]>(res);
 }
 
+export async function cancelDocumentJob(jobId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/document-jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: "POST",
+  });
+  await handleResponse(res);
+}
+
 export async function deleteAllDocumentJobs(): Promise<{ count: number }> {
   const res = await fetch(`${API_URL}/api/document-jobs`, { method: "DELETE" });
   return handleResponse<{ count: number }>(res);
@@ -130,6 +138,13 @@ export async function resolveConflict(conflictId: string, resolvedPolicyId: stri
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ resolved_policy_id: resolvedPolicyId }),
+  });
+  await handleResponse(res);
+}
+
+export async function resolveConflictKeepBoth(conflictId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/policy-conflicts/${encodeURIComponent(conflictId)}/resolve-both`, {
+    method: "POST",
   });
   await handleResponse(res);
 }

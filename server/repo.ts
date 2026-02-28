@@ -22,6 +22,7 @@ export interface PolicyRow {
   end_date: string | null;
   valid_until: string | null;
   extraction_job_id: string | null;
+  tags: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -55,7 +56,7 @@ export interface DocumentJobRow {
   id: string;
   filename: string;
   file_content: string | null;
-  status: "queued" | "processing" | "done" | "error";
+  status: "queued" | "processing" | "done" | "error" | "cancelled";
   policies_extracted: number;
   error_message: string | null;
   created_at: string | null;
@@ -68,6 +69,7 @@ export interface IDocumentJobRepository {
   create(job: Pick<DocumentJobRow, "id" | "filename" | "file_content">): void;
   updateStatus(id: string, status: DocumentJobRow["status"], extra?: { policies_extracted?: number; error_message?: string }): void;
   getNextQueued(): DocumentJobRow | undefined;
+  cancel(id: string): void;
   deleteAll(): number;
 }
 

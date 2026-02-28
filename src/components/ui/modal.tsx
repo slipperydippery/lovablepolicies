@@ -170,7 +170,7 @@ const Modal = React.forwardRef<
                 )}
 
                 {/* Body */}
-                {body && <div className="px-sp-24 py-sp-24">{body}</div>}
+                {body && <div className="px-sp-24 py-sp-24 overflow-y-auto">{body}</div>}
 
                 {/* Footer */}
                 {footer && (

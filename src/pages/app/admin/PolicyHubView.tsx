@@ -11,7 +11,7 @@ import { mockLedger } from "@/data/mock-ledger";
 import { usePolicies } from "@/hooks/use-policies";
 import type { Policy } from "@/hooks/use-policies";
 import { useDocumentJobs } from "@/hooks/use-document-jobs";
-import { deleteAllDocumentJobs, fetchPolicyConflicts, resolveConflict as apiResolveConflict, type PolicyConflictRow } from "@/lib/api";
+import { deleteAllDocumentJobs, cancelDocumentJob, fetchPolicyConflicts, resolveConflict as apiResolveConflict, resolveConflictKeepBoth as apiResolveConflictKeepBoth, type PolicyConflictRow } from "@/lib/api";
 import { resetPoliciesTable, populateBenchmarks } from "@/data/onboarding-policies";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -61,12 +61,6 @@ export default function PolicyHubView() {
     fetchPolicyConflicts().then(setConflicts).catch(() => {});
   }, [policies]);
 
-  // When jobs complete, refresh policies
-  useEffect(() => {
-    if (!hasActiveJobs && jobs.length > 0) {
-      queryClient.invalidateQueries({ queryKey: ["policies"] });
-    }
-  }, [hasActiveJobs]);
 
   const handleRemoveAll = async () => {
     setRemoving(true);
@@ -219,6 +213,24 @@ export default function PolicyHubView() {
     }
   };
 
+  const handleCancelJob = async (jobId: string) => {
+    try {
+      await cancelDocumentJob(jobId);
+      invalidateJobs();
+    } catch {}
+  };
+
+  const handleResolveKeepBoth = async (conflict: PolicyConflictRow) => {
+    try {
+      await apiResolveConflictKeepBoth(conflict.id);
+      queryClient.invalidateQueries({ queryKey: ["policies"] });
+      setConflicts((prev) => prev.map((c) => c.id === conflict.id ? { ...c, resolved: true } : c));
+      toast.success(t("policyHub.conflictResolved"));
+    } catch {
+      toast.error("Failed to resolve conflict.");
+    }
+  };
+
   const handleClearCompletedJobs = async () => {
     try {
       await deleteAllDocumentJobs();
@@ -320,13 +332,16 @@ export default function PolicyHubView() {
                   {job.status === "error" && (
                     <i className="fa-solid fa-circle-xmark text-error" aria-hidden="true" />
                   )}
+                  {job.status === "cancelled" && (
+                    <i className="fa-solid fa-ban text-muted-foreground" aria-hidden="true" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <span className="font-medium text-foreground truncate block">{job.filename}</span>
                 </div>
-                <div className="shrink-0">
+                <div className="shrink-0 flex items-center gap-sp-8">
                   {job.status === "processing" && (
-                    <Badge colorScheme="primary" label={t("queue.processing")} />
+                    <Badge colorScheme="primary" label={`${t("queue.processing")}${job.policies_extracted > 0 ? ` (${job.policies_extracted})` : ""}`} />
                   )}
                   {job.status === "queued" && (
                     <Badge colorScheme="neutral" label={t("queue.queued")} />
@@ -336,6 +351,20 @@ export default function PolicyHubView() {
                   )}
                   {job.status === "error" && (
                     <Badge colorScheme="error" label={t("queue.error")} />
+                  )}
+                  {job.status === "cancelled" && (
+                    <Badge colorScheme="neutral" label={t("queue.cancelled")} />
+                  )}
+                  {(job.status === "queued" || job.status === "processing") && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelJob(job.id)}
+                      className="text-muted-foreground hover:text-error transition-colors p-sp-4"
+                      aria-label={t("queue.cancel")}
+                      title={t("queue.cancel")}
+                    >
+                      <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -546,7 +575,15 @@ export default function PolicyHubView() {
             {selectedPolicy.status === "conflict" && (() => {
               const policyConflicts = getConflictsForPolicy(selectedPolicy.id);
               if (policyConflicts.length === 0) return null;
-              return policyConflicts.map((conflict) => {
+              // Deduplicate: only show one conflict card per unique other-policy
+              const seen = new Set<string>();
+              const deduped = policyConflicts.filter((conflict) => {
+                const otherPolicyId = conflict.policy_a_id === selectedPolicy.id ? conflict.policy_b_id : conflict.policy_a_id;
+                if (seen.has(otherPolicyId)) return false;
+                seen.add(otherPolicyId);
+                return true;
+              });
+              return deduped.map((conflict) => {
                 const otherPolicyId = conflict.policy_a_id === selectedPolicy.id ? conflict.policy_b_id : conflict.policy_a_id;
                 const otherPolicy = policies.find((p) => p.id === otherPolicyId);
                 return (
@@ -554,18 +591,26 @@ export default function PolicyHubView() {
                     <p className="text-sm font-semibold text-error mb-sp-4">
                       {t("policyHub.conflictPolicy")}
                     </p>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-sp-8">
-                      {t("policyHub.conflictPolicyDesc")}
-                    </p>
                     <p className="text-xs text-muted-foreground mb-sp-4">
                       <span className="font-semibold">{t("policyHub.conflictField")}:</span> {conflict.conflict_field}
                     </p>
-                    {otherPolicy && (
-                      <p className="text-xs text-muted-foreground mb-sp-8">
-                        <span className="font-semibold">{t("policyHub.conflictWith")}:</span> {otherPolicy.id} — {otherPolicy.name} ({otherPolicy.maxAmount})
+                    {conflict.description && (
+                      <p className="text-xs text-muted-foreground mb-sp-4 italic">
+                        {conflict.description}
                       </p>
                     )}
-                    <div className="flex gap-sp-8">
+                    {otherPolicy && (
+                      <div className="rounded border border-border bg-background p-sp-12 mb-sp-8">
+                        <p className="text-xs font-semibold text-foreground mb-sp-4">
+                          {t("policyHub.conflictWith")}: {otherPolicy.id} — {otherPolicy.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{otherPolicy.maxAmount}</p>
+                        {otherPolicy.intent && (
+                          <p className="text-xs text-muted-foreground mt-sp-4 leading-relaxed">{otherPolicy.intent}</p>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex gap-sp-8 flex-wrap">
                       <Button
                         variant="solid"
                         colorScheme="primary"
@@ -581,6 +626,12 @@ export default function PolicyHubView() {
                           {t("policyHub.resolveKeepOther")}
                         </Button>
                       )}
+                      <Button
+                        variant="outline"
+                        onClick={() => handleResolveKeepBoth(conflict)}
+                      >
+                        {t("policyHub.resolveKeepBoth")}
+                      </Button>
                     </div>
                   </div>
                 );
@@ -623,15 +674,26 @@ export default function PolicyHubView() {
               );
             })()}
 
+            {/* ---- Tags ---- */}
+            {selectedPolicy.tags.length > 0 && (
+              <div className="flex flex-wrap gap-sp-4">
+                {selectedPolicy.tags.map((tag) => (
+                  <Badge key={tag} colorScheme="neutral" label={tag} className="text-xs" />
+                ))}
+              </div>
+            )}
+
             {/* ---- Policy Rules Editor ---- */}
             <section className="pt-sp-8">
               <h3 className="font-semibold text-sm text-foreground mb-sp-12">{t("policyHub.policyRules")}</h3>
               <div className="flex flex-col gap-sp-12">
                 <div>
                   <label className="text-xs text-muted-foreground font-semibold mb-sp-4 block">{t("policyHub.labelIntent")}</label>
-                  <Input
+                  <textarea
                     value={draft.intent}
                     onChange={(e) => setDraft((d) => ({ ...d, intent: e.target.value }))}
+                    rows={3}
+                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
                   />
                 </div>
                 <div>

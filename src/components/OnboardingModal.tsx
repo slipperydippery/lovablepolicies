@@ -150,14 +150,16 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
         onValueChange={(v) => setMode(v as Mode)}
         showContent={false}
       />
-      <FileUpload
-        value={files}
-        onChange={(f) => setFiles(f ? (Array.isArray(f) ? f : [f]) : [])}
-        multiple
-        accept=".pdf,.txt"
-        filesLayout="list"
-        description={t("onboarding.uploadDesc")}
-      />
+      <div className="max-h-[50vh] overflow-y-auto">
+        <FileUpload
+          value={files}
+          onChange={(f) => setFiles(f ? (Array.isArray(f) ? f : [f]) : [])}
+          multiple
+          accept=".pdf,.txt"
+          filesLayout="list"
+          description={t("onboarding.uploadDesc")}
+        />
+      </div>
       <Button
         variant="solid"
         colorScheme="primary"

@@ -50,11 +50,11 @@ export class SqlitePolicyRepository implements IPolicyRepository {
       INSERT INTO policies (
         id, name, category, status, max_amount, limit_amount, friction,
         intent, afas_code, ledger, benchmark_score, benchmark_warning,
-        allowed_categories, source_document, start_date, end_date, extraction_job_id
+        allowed_categories, source_document, start_date, end_date, extraction_job_id, tags
       ) VALUES (
         @id, @name, @category, @status, @max_amount, @limit_amount, @friction,
         @intent, @afas_code, @ledger, @benchmark_score, @benchmark_warning,
-        @allowed_categories, @source_document, @start_date, @end_date, @extraction_job_id
+        @allowed_categories, @source_document, @start_date, @end_date, @extraction_job_id, @tags
       )
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
@@ -72,7 +72,8 @@ export class SqlitePolicyRepository implements IPolicyRepository {
         source_document = excluded.source_document,
         start_date = excluded.start_date,
         end_date = excluded.end_date,
-        extraction_job_id = excluded.extraction_job_id
+        extraction_job_id = excluded.extraction_job_id,
+        tags = excluded.tags
     `);
 
     const upsertMany = this.db.transaction((items: Partial<PolicyRow>[]) => {
@@ -95,6 +96,7 @@ export class SqlitePolicyRepository implements IPolicyRepository {
           start_date: row.start_date ?? null,
           end_date: row.end_date ?? null,
           extraction_job_id: row.extraction_job_id ?? null,
+          tags: row.tags ?? null,
         });
       }
       return items.length;
@@ -189,6 +191,12 @@ export class SqliteDocumentJobRepository implements IDocumentJobRepository {
     return this.db
       .prepare("SELECT * FROM document_jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1")
       .get() as DocumentJobRow | undefined;
+  }
+
+  cancel(id: string): void {
+    this.db
+      .prepare("UPDATE document_jobs SET status = 'cancelled', completed_at = @completed_at WHERE id = @id AND status IN ('queued', 'processing')")
+      .run({ id, completed_at: new Date().toISOString() });
   }
 
   deleteAll(): number {

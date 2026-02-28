@@ -85,11 +85,8 @@ db.exec(`
   );
 `);
 
-// Migration: add extraction_job_id to existing policies table if missing
-try {
-  db.exec(`ALTER TABLE policies ADD COLUMN extraction_job_id TEXT`);
-} catch (_) {
-  // Column already exists — ignore
-}
+// Migrations: add columns to existing policies table if missing
+try { db.exec(`ALTER TABLE policies ADD COLUMN extraction_job_id TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE policies ADD COLUMN tags TEXT`); } catch (_) {}
 
 export default db;

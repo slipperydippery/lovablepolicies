@@ -122,6 +122,7 @@
   "policyHub.resolveKeepThis": "Keep This Policy",
   "policyHub.resolveKeepOther": "Keep Other Policy",
   "policyHub.conflictResolved": "Conflict resolved.",
+  "policyHub.conflictReason": "Reason",
   "policyHub.allRemoved": "All policies removed.",
   "policyHub.removeFailed": "Failed to remove policies.",
   "policyHub.benchmarked": "Benchmarked {{count}} policies against sector standards.",
@@ -298,5 +299,10 @@
   "queue.error": "Error",
   "queue.policiesExtracted": "{{count}} policies extracted",
   "queue.clearCompleted": "Clear Completed",
-  "queue.noJobs": "No documents in the queue."
+  "queue.noJobs": "No documents in the queue.",
+  "queue.cancel": "Cancel",
+  "queue.cancelled": "Cancelled",
+
+  "policyHub.resolveKeepBoth": "Keep Both",
+  "policyHub.labelTags": "Tags"
 }

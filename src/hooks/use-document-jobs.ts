@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchDocumentJobs, type DocumentJobRow } from "@/lib/api";
 
@@ -24,10 +25,20 @@ export function useDocumentJobs() {
   const queuedJobs = jobs.filter((j) => j.status === "queued");
   const completedJobs = jobs.filter((j) => j.status === "done");
   const errorJobs = jobs.filter((j) => j.status === "error");
+  const cancelledJobs = jobs.filter((j) => j.status === "cancelled");
+
+  // Invalidate policies on every poll cycle while jobs are active
+  // so newly extracted policies appear in real-time
+  const prevDataRef = useRef(query.data);
+  useEffect(() => {
+    if (query.data !== prevDataRef.current && hasActiveJobs) {
+      queryClient.invalidateQueries({ queryKey: ["policies"] });
+    }
+    prevDataRef.current = query.data;
+  }, [query.data, hasActiveJobs]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: JOBS_KEY });
-    // Also refresh policies since new ones may have been created
     queryClient.invalidateQueries({ queryKey: ["policies"] });
   };
 
@@ -38,6 +49,7 @@ export function useDocumentJobs() {
     queuedJobs,
     completedJobs,
     errorJobs,
+    cancelledJobs,
     isLoading: query.isLoading,
     invalidate,
   };

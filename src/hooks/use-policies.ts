@@ -20,6 +20,7 @@ export interface Policy {
   category: string;
   sourceDocument: string;
   extractionJobId: string;
+  tags: string[];
   createdAt: string;
 }
 
@@ -45,6 +46,7 @@ function rowToPolicy(row: PolicyRow): Policy {
     category: row.category ?? "",
     sourceDocument: row.source_document ?? "",
     extractionJobId: row.extraction_job_id ?? "",
+    tags: row.tags ? (() => { try { return JSON.parse(row.tags); } catch { return []; } })() : [],
     createdAt: row.created_at ?? "",
   };
 }
