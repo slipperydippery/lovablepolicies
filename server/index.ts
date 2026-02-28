@@ -12,7 +12,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    "https://lovablepolicies.vercel.app",
+    "http://localhost:8080",
+  ],
+}));
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
