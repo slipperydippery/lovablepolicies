@@ -160,27 +160,28 @@ CROSS-LANGUAGE MATCHING:
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    // Stream from Anthropic using the async iterator API (works across SDK versions)
-    const stream = anthropic.messages.stream({
+    // Use the low-level streaming API for maximum compatibility
+    const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 1024,
       system: systemPrompt,
       messages: anthropicMessages,
+      stream: true,
     });
 
     // Handle client disconnect
     let aborted = false;
     req.on("close", () => {
       aborted = true;
-      try { stream.abort(); } catch { /* client disconnected — safe to ignore */ }
+      try { response.controller.abort(); } catch { /* safe to ignore */ }
     });
 
     try {
-      for await (const event of stream) {
+      for await (const event of response) {
         if (aborted) break;
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        if (event.type === "content_block_delta" && (event.delta as any).type === "text_delta") {
           const chunk = JSON.stringify({
-            choices: [{ delta: { content: event.delta.text } }],
+            choices: [{ delta: { content: (event.delta as any).text } }],
           });
           res.write(`data: ${chunk}\n\n`);
         }
