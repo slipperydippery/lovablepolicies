@@ -207,7 +207,20 @@ npm install
 npm run dev          # → http://localhost:3001
 ```
 
-## 7. Internationalization
+## 7. Deployment
+
+- **Frontend**: [Vercel](https://vercel.com) — auto-deploys from Git on push. SPA rewrites configured in `vercel.json`. Live at `https://lovablepolicies.vercel.app`.
+- **Server**: [Railway](https://railway.app) — runs the Express server from the `server/` directory. The SQLite database file (`server/data/botchie.db`) is stored on Railway's filesystem, which is ephemeral (resets on each redeploy). This is fine for demos; for persistent production data, attach a Railway volume or switch to a hosted DB.
+
+### Env vars by platform
+
+| Platform | Variable | Value |
+|----------|----------|-------|
+| Vercel | `VITE_API_URL` | Railway server URL (e.g. `https://your-app.up.railway.app`) |
+| Railway | `ANTHROPIC_API_KEY` | Claude API key |
+| Railway | `PORT` | Set by Railway automatically |
+
+## 8. Internationalization
 
 - Default language: **Dutch (nl)**
 - Fallback: **English (en)**
@@ -217,7 +230,7 @@ npm run dev          # → http://localhost:3001
 - Language persisted in `localStorage` via `i18next-browser-languagedetector`
 - The AI chat backend accepts a `language` parameter and responds in the matching language
 
-## 8. Known Limitations & Future Work
+## 9. Known Limitations & Future Work
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -231,7 +244,7 @@ npm run dev          # → http://localhost:3001
 | Multi-tenancy | ❌ Not implemented | Single-org, location switching is cosmetic |
 | Onboarding AI | ✅ Dual mode | Demo mode (simulated) + real AI extraction via Claude |
 
-## 9. Keeping Documentation Updated
+## 10. Keeping Documentation Updated
 
 This project uses two documentation files:
 

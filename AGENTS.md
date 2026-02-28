@@ -122,6 +122,13 @@ Note: `ledger_categories` and `sub_ledgers` are currently hardcoded mock data in
 - `ANTHROPIC_API_KEY` — For Claude chat + policy extraction
 - `PORT` — Server port (default 3001)
 
+## Deployment
+
+- **Frontend**: Vercel — auto-deploys from Git. SPA rewrites configured in `vercel.json`. Live at `https://lovablepolicies.vercel.app`.
+- **Server**: Railway — runs the Express server from `server/`. SQLite DB is stored on Railway's filesystem (ephemeral; resets on redeploy — fine for demos).
+- **Env vars (Vercel)**: `VITE_API_URL` → Railway server URL
+- **Env vars (Railway)**: `ANTHROPIC_API_KEY`, `PORT`
+
 ## Conventions
 
 - **Design system**: Always read `tokens.json` + `ui-manifest.json` before creating UI. Use `sp-` spacing tokens, semantic color classes, Font Awesome icons only. See `Guidelines.md` for full rules.
