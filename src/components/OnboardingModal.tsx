@@ -109,8 +109,14 @@ export default function OnboardingModal({ open, onOpenChange, onActivated }: Onb
       }
 
       const data = await res.json();
-      const ready: ReadyPolicy[] = data.readyPolicies || [];
-      const conflicts: ConflictPolicy[] = data.conflictPolicies || [];
+      const ready: ReadyPolicy[] = (data.readyPolicies || []).map((p: any) => ({
+        ...p,
+        sourceDocument: p.sourceDocuments || p.sourceDocument || undefined,
+      }));
+      const conflicts: ConflictPolicy[] = (data.conflictPolicies || []).map((p: any) => ({
+        ...p,
+        sourceDocument: p.sourceDocuments || p.sourceDocument || undefined,
+      }));
 
       if (ready.length === 0 && conflicts.length === 0) {
         toast.error(t("onboarding.noPolicies"));

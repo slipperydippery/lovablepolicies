@@ -30,6 +30,7 @@ export type Database = {
           limit_amount: number | null
           max_amount: string | null
           name: string
+          source_document: string | null
           start_date: string | null
           status: string
           updated_at: string | null
@@ -50,6 +51,7 @@ export type Database = {
           limit_amount?: number | null
           max_amount?: string | null
           name: string
+          source_document?: string | null
           start_date?: string | null
           status?: string
           updated_at?: string | null
@@ -70,6 +72,7 @@ export type Database = {
           limit_amount?: number | null
           max_amount?: string | null
           name?: string
+          source_document?: string | null
           start_date?: string | null
           status?: string
           updated_at?: string | null

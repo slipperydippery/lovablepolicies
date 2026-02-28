@@ -18,6 +18,8 @@ export interface Policy {
   limit: number;
   friction: "Low" | "Medium" | "High";
   category: string;
+  sourceDocument: string;
+  createdAt: string;
 }
 
 interface PolicyRow {
@@ -37,6 +39,8 @@ interface PolicyRow {
   limit_amount: number | null;
   friction: string | null;
   category: string | null;
+  source_document: string | null;
+  created_at: string | null;
 }
 
 function rowToPolicy(row: PolicyRow): Policy {
@@ -57,6 +61,8 @@ function rowToPolicy(row: PolicyRow): Policy {
     limit: row.limit_amount ?? 0,
     friction: (row.friction ?? "Low") as Policy["friction"],
     category: row.category ?? "",
+    sourceDocument: row.source_document ?? "",
+    createdAt: row.created_at ?? "",
   };
 }
 
@@ -91,6 +97,7 @@ export function usePolicies() {
         ledger: "ledger",
         startDate: "start_date",
         endDate: "end_date",
+        sourceDocument: "source_document",
       };
       for (const [key, val] of Object.entries(updates.changes)) {
         const dbKey = fieldMap[key] ?? key;

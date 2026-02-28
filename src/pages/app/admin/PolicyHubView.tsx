@@ -325,6 +325,19 @@ export default function PolicyHubView() {
               ),
           },
           {
+            key: "sourceDocument",
+            label: t("policyHub.colSource"),
+            cell: (row) =>
+              row.sourceDocument ? (
+                <span className="inline-flex items-center gap-sp-4 text-muted-foreground">
+                  <i className="fa-solid fa-file-lines text-xs" aria-hidden="true" />
+                  <span className="truncate max-w-[140px]" title={row.sourceDocument}>{row.sourceDocument.split(",")[0].trim()}</span>
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+          {
             key: "endDate",
             label: t("policyHub.colEndDate"),
             sortable: true,
@@ -358,6 +371,29 @@ export default function PolicyHubView() {
               >
                 <i className="fa-solid fa-xmark text-lg" aria-hidden="true" />
               </button>
+            </div>
+
+            {/* ---- Source & Created At ---- */}
+            <div className="flex flex-col gap-sp-4 text-sm">
+              <div className="flex items-center gap-sp-8">
+                <span className="text-xs text-muted-foreground font-semibold">{t("policyHub.labelSource")}:</span>
+                {selectedPolicy.sourceDocument ? (
+                  <span className="inline-flex items-center gap-sp-4 text-xs text-foreground">
+                    <i className="fa-solid fa-file-lines text-xs text-muted-foreground" aria-hidden="true" />
+                    {selectedPolicy.sourceDocument}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic">{t("policyHub.sourceManual")}</span>
+                )}
+              </div>
+              {selectedPolicy.createdAt && (
+                <div className="flex items-center gap-sp-8">
+                  <span className="text-xs text-muted-foreground font-semibold">{t("policyHub.labelCreatedAt")}:</span>
+                  <span className="text-xs text-foreground">
+                    {new Date(selectedPolicy.createdAt).toLocaleDateString("nl-NL", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* ---- Draft Activation Card ---- */}

@@ -137,7 +137,7 @@ Both backends:
 policies (id text PK, name, category, status, max_amount, limit_amount,
           friction, intent, afas_code, ledger, benchmark_score,
           benchmark_warning, start_date, end_date, allowed_categories,
-          created_at, updated_at)
+          source_document, created_at, updated_at)
 
 ledger_categories (id text PK, code, name, total_budget, location_id)
 

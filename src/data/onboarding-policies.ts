@@ -15,6 +15,7 @@ export interface ReadyPolicy {
   benchmarkWarning: boolean;
   startDate: string;
   endDate: string;
+  sourceDocument?: string;
 }
 
 export interface ConflictPolicy {
@@ -28,6 +29,7 @@ export interface ConflictPolicy {
   sourceA: { label: string; value: number; display: string };
   sourceB: { label: string; value: number; display: string };
   benchmark: { label: string; value: number; display: string };
+  sourceDocument?: string;
 }
 
 /* ── Ready policies ── */
@@ -46,6 +48,7 @@ export const READY_POLICIES: ReadyPolicy[] = [
     benchmarkWarning: true,
     startDate: "2026-01-01",
     endDate: "2026-12-31",
+    sourceDocument: "Care Procurement Policy",
   },
   {
     id: "POL-2024-05",
@@ -60,6 +63,7 @@ export const READY_POLICIES: ReadyPolicy[] = [
     benchmarkWarning: false,
     startDate: "2024-03-01",
     endDate: "2025-02-28",
+    sourceDocument: "Care Procurement Policy",
   },
   {
     id: "POL-2025-18",
@@ -74,6 +78,7 @@ export const READY_POLICIES: ReadyPolicy[] = [
     benchmarkWarning: true,
     startDate: "2025-06-01",
     endDate: "2026-05-31",
+    sourceDocument: "Employee Handbook 2024, Care Procurement Policy",
   },
   {
     id: "POL-2025-33",
@@ -88,6 +93,7 @@ export const READY_POLICIES: ReadyPolicy[] = [
     benchmarkWarning: false,
     startDate: "2025-01-15",
     endDate: "2025-12-31",
+    sourceDocument: "Employee Handbook 2024, Care Procurement Policy",
   },
   {
     id: "POL-2026-092",
@@ -102,6 +108,7 @@ export const READY_POLICIES: ReadyPolicy[] = [
     benchmarkWarning: true,
     startDate: "2026-02-01",
     endDate: "2027-01-31",
+    sourceDocument: "Care Procurement Policy",
   },
   {
     id: "POL-2022-12",
@@ -116,6 +123,7 @@ export const READY_POLICIES: ReadyPolicy[] = [
     benchmarkWarning: false,
     startDate: "2022-01-01",
     endDate: "2026-12-31",
+    sourceDocument: "Employee Handbook 2024",
   },
   {
     id: "POL-2026-104",
@@ -130,6 +138,7 @@ export const READY_POLICIES: ReadyPolicy[] = [
     benchmarkWarning: false,
     startDate: "2026-01-01",
     endDate: "2026-12-31",
+    sourceDocument: "Care Procurement Policy",
   },
   {
     id: "POL-2026-115",
@@ -144,6 +153,7 @@ export const READY_POLICIES: ReadyPolicy[] = [
     benchmarkWarning: false,
     startDate: "2026-01-01",
     endDate: "2026-12-31",
+    sourceDocument: "Care Procurement Policy",
   },
   {
     id: "POL-2026-120",
@@ -158,6 +168,7 @@ export const READY_POLICIES: ReadyPolicy[] = [
     benchmarkWarning: true,
     startDate: "2026-01-01",
     endDate: "2026-12-31",
+    sourceDocument: "Care Procurement Policy",
   },
 ];
 
@@ -175,6 +186,7 @@ export const CONFLICT_POLICIES: ConflictPolicy[] = [
     sourceA: { label: "Employee Handbook", value: 15, display: "EUR 15" },
     sourceB: { label: "Finance Guidelines", value: 25, display: "EUR 25" },
     benchmark: { label: "Sector avg", value: 20, display: "EUR 20" },
+    sourceDocument: "Employee Handbook 2024, Finance Guidelines 2025",
   },
 ];
 
@@ -214,6 +226,7 @@ export async function upsertPolicies(
       benchmark_warning: false,
       start_date: p.startDate,
       end_date: p.endDate,
+      source_document: p.sourceDocument ?? null,
     })),
     ...conflictPolicies.map((p) => {
       const resolved = resolvedValues[p.id] ?? 0;
@@ -230,6 +243,7 @@ export async function upsertPolicies(
         ledger: String(p.afasCode),
         benchmark_score: null,
         benchmark_warning: false,
+        source_document: p.sourceDocument ?? null,
       };
     }),
   ];

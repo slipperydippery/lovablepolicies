@@ -229,7 +229,8 @@ OUTPUT FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
       "benchmarkScore": "Matches VVT Standard" or similar,
       "benchmarkWarning": false,
       "startDate": "2026-01-01",
-      "endDate": "2026-12-31"
+      "endDate": "2026-12-31",
+      "sourceDocuments": "Document Name A, Document Name B"
     }
   ],
   "conflictPolicies": [
@@ -243,7 +244,8 @@ OUTPUT FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
       "conflictField": "Human-readable field name (e.g. Max spend per birthday)",
       "sourceA": { "label": "Document name A", "value": 15, "display": "EUR 15" },
       "sourceB": { "label": "Document name B", "value": 25, "display": "EUR 25" },
-      "benchmark": { "label": "Sector avg", "value": 20, "display": "EUR 20" }
+      "benchmark": { "label": "Sector avg", "value": 20, "display": "EUR 20" },
+      "sourceDocuments": "Document Name A, Document Name B"
     }
   ]
 }
@@ -262,7 +264,8 @@ RULES:
 7. Policy names and all fields MUST be in English.
 8. limitAmount should be the numeric euro value (integer). Use 0 if no per-transaction limit.
 9. Dates: use reasonable defaults (startDate = 2026-01-01, endDate = 2026-12-31) unless the document specifies dates.
-10. Return ONLY the JSON object. No markdown, no commentary.`;
+10. Return ONLY the JSON object. No markdown, no commentary.
+11. sourceDocuments: comma-separated list of the original document name(s) that this rule was found in. Use the exact document filenames from the upload.`;
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",

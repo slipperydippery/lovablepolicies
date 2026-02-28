@@ -81,7 +81,7 @@ public/
 ## Database Schema (Supabase)
 
 ### `policies`
-Core table. Each policy has: `id` (text PK, e.g. "POL-2026-041"), `name`, `category`, `status` (active/draft/conflict/deprecated), `max_amount` (text, e.g. "EUR 50,00 per transaction"), `limit_amount` (integer, cents), `friction` (Low/Medium/High), `intent` (text description), `afas_code` (integer, maps to sub-ledger), `ledger`, `benchmark_score`, `benchmark_warning`, `start_date`, `end_date`, `allowed_categories`. No auth/RLS enforcement yet.
+Core table. Each policy has: `id` (text PK, e.g. "POL-2026-041"), `name`, `category`, `status` (active/draft/conflict/deprecated), `max_amount` (text, e.g. "EUR 50,00 per transaction"), `limit_amount` (integer, cents), `friction` (Low/Medium/High), `intent` (text description), `afas_code` (integer, maps to sub-ledger), `ledger`, `benchmark_score`, `benchmark_warning`, `start_date`, `end_date`, `allowed_categories`, `source_document` (text, nullable — comma-separated filename(s) of the document(s) the policy was extracted from; null = manually created), `created_at`, `updated_at`. No auth/RLS enforcement yet.
 
 ### `ledger_categories`
 Budget categories per location: `id`, `code`, `name`, `total_budget`, `location_id`.
