@@ -92,6 +92,56 @@ export default function PolicyHubView() {
 
   const selectedPolicy = policies.find((p) => p.id === selectedId) ?? null;
 
+  /* ---- Review queue: pending_review navigation ---- */
+  const pendingPolicies = useMemo(
+    () => policies.filter((p) => p.status === "pending_review"),
+    [policies]
+  );
+  const pendingIndex = selectedPolicy
+    ? pendingPolicies.findIndex((p) => p.id === selectedPolicy.id)
+    : -1;
+  const prevPendingId = pendingIndex > 0 ? pendingPolicies[pendingIndex - 1].id : null;
+  const nextPendingId =
+    pendingIndex >= 0 && pendingIndex < pendingPolicies.length - 1
+      ? pendingPolicies[pendingIndex + 1].id
+      : null;
+  const hasNextPending = nextPendingId !== null;
+
+  const handleActivateAndNext = () => {
+    if (!selectedPolicy) return;
+    // Save any pending draft changes together with activation
+    const changes: Record<string, any> = { status: "active" };
+    if (draft.intent !== selectedPolicy.intent) changes.intent = draft.intent;
+    if (draft.maxAmount !== selectedPolicy.maxAmount) changes.maxAmount = draft.maxAmount;
+    if (draft.startDate !== selectedPolicy.startDate) changes.startDate = draft.startDate;
+    if (draft.endDate !== selectedPolicy.endDate) changes.endDate = draft.endDate;
+    if (draft.afasCode !== selectedPolicy.afasCode) {
+      changes.afasCode = draft.afasCode;
+      changes.ledger = draft.afasCode ? String(draft.afasCode) : "";
+    }
+    updatePolicy(selectedPolicy.id, changes);
+    toast.success(t("policyHub.policyActivated"));
+    if (hasNextPending) {
+      setSelectedId(nextPendingId);
+    } else {
+      setSelectedId(null);
+      toast.success(t("policyHub.allReviewed"));
+    }
+  };
+
+  const handleSkipNext = () => {
+    if (hasNextPending) {
+      setSelectedId(nextPendingId);
+    }
+  };
+
+  const handleStartReview = () => {
+    if (pendingPolicies.length > 0) {
+      setFilter("pending_review");
+      setSelectedId(pendingPolicies[0].id);
+    }
+  };
+
   /* ---- Local draft state for editable sidebar fields ---- */
   const [draft, setDraft] = useState({
     intent: "",
@@ -399,6 +449,20 @@ export default function PolicyHubView() {
         ))}
       </div>
 
+      {/* ---- Start Review Banner ---- */}
+      {pendingPolicies.length > 0 && !selectedPolicy && (
+        <div className="flex items-center gap-sp-12 rounded-lg border border-warning/30 bg-warning/10 px-sp-16 py-sp-12">
+          <i className="fa-solid fa-clipboard-check text-warning" aria-hidden="true" />
+          <span className="text-sm text-foreground flex-1">
+            {t("policyHub.pendingBanner", { count: pendingPolicies.length })}
+          </span>
+          <Button variant="solid" colorScheme="primary" onClick={handleStartReview}>
+            <i className="fa-solid fa-play" aria-hidden="true" />
+            {t("policyHub.startReview")}
+          </Button>
+        </div>
+      )}
+
       {/* ---- Table ---- */}
       <Table<Policy>
         data={filtered}
@@ -514,6 +578,33 @@ export default function PolicyHubView() {
               </button>
             </div>
 
+            {/* ---- Review Queue Navigation ---- */}
+            {pendingIndex >= 0 && pendingPolicies.length > 1 && (
+              <div className="flex items-center justify-between rounded-lg border border-border bg-muted px-sp-12 py-sp-8">
+                <button
+                  type="button"
+                  disabled={!prevPendingId}
+                  onClick={() => prevPendingId && setSelectedId(prevPendingId)}
+                  className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors p-sp-4"
+                >
+                  <i className="fa-solid fa-chevron-left mr-sp-4" aria-hidden="true" />
+                  {t("common.review")}
+                </button>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {t("policyHub.reviewProgress", { current: pendingIndex + 1, total: pendingPolicies.length })}
+                </span>
+                <button
+                  type="button"
+                  disabled={!nextPendingId}
+                  onClick={() => nextPendingId && setSelectedId(nextPendingId)}
+                  className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors p-sp-4"
+                >
+                  {t("common.review")}
+                  <i className="fa-solid fa-chevron-right ml-sp-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
             {/* ---- Source & Created At ---- */}
             <div className="flex flex-col gap-sp-4 text-sm">
               <div className="flex items-center gap-sp-8">
@@ -546,15 +637,26 @@ export default function PolicyHubView() {
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {t("policyHub.pendingReviewPolicyDesc")}
                 </p>
-                <Button
-                  variant="solid"
-                  colorScheme="primary"
-                  className="mt-sp-12"
-                  onClick={() => activatePolicy(selectedPolicy.id)}
-                >
-                  <i className="fa-solid fa-check" aria-hidden="true" />
-                  {t("policyHub.reviewPolicy")}
-                </Button>
+                <div className="flex gap-sp-8 mt-sp-12">
+                  <Button
+                    variant="solid"
+                    colorScheme="primary"
+                    onClick={handleActivateAndNext}
+                  >
+                    <i className="fa-solid fa-check" aria-hidden="true" />
+                    {hasNextPending ? t("policyHub.activateAndNext") : t("policyHub.reviewPolicy")}
+                    {hasNextPending && <i className="fa-solid fa-chevron-right ml-sp-4" aria-hidden="true" />}
+                  </Button>
+                  {hasNextPending && (
+                    <Button
+                      variant="outline"
+                      onClick={handleSkipNext}
+                    >
+                      {t("policyHub.skipNext")}
+                      <i className="fa-solid fa-chevron-right ml-sp-4" aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 

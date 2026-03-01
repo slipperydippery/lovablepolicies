@@ -304,5 +304,12 @@
   "queue.cancelled": "Cancelled",
 
   "policyHub.resolveKeepBoth": "Keep Both",
-  "policyHub.labelTags": "Tags"
+  "policyHub.labelTags": "Tags",
+  "policyHub.reviewProgress": "{{current}} of {{total}} pending",
+  "policyHub.activateAndNext": "Activate & Next",
+  "policyHub.skipNext": "Skip",
+  "policyHub.startReview": "Start Review",
+  "policyHub.allReviewed": "All policies reviewed!",
+  "policyHub.pendingBanner": "{{count}} policies pending review",
+  "policyHub.policyActivated": "Policy activated."
 }

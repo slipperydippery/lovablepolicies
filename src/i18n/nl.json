@@ -304,5 +304,12 @@
   "queue.cancelled": "Geannuleerd",
 
   "policyHub.resolveKeepBoth": "Beide Behouden",
-  "policyHub.labelTags": "Tags"
+  "policyHub.labelTags": "Tags",
+  "policyHub.reviewProgress": "{{current}} van {{total}} te beoordelen",
+  "policyHub.activateAndNext": "Activeren & Volgende",
+  "policyHub.skipNext": "Overslaan",
+  "policyHub.startReview": "Start Beoordeling",
+  "policyHub.allReviewed": "Alle beleidsregels beoordeeld!",
+  "policyHub.pendingBanner": "{{count}} beleidsregels ter beoordeling",
+  "policyHub.policyActivated": "Beleid geactiveerd."
 }

@@ -473,7 +473,8 @@ RULES:
 7. Dates: use reasonable defaults (startDate = 2026-01-01, endDate = 2026-12-31) unless the document specifies dates.
 8. The "intent" field MUST be 2-3 sentences. Include the specific conditions, who it applies to, what is allowed/restricted, and any approval or escalation requirements mentioned in the source document.
 9. The "tags" field MUST contain 3-5 lowercase hyphenated tags describing the specific subject matter and item type of the policy. Tags should be specific enough to distinguish between different product types within the same category. For example: ["ergonomic", "office-chair", "furniture"] or ["customer-gift", "client-relations", "hospitality"]. Do NOT use generic tags like "procurement" or "policy".
-10. Return ONLY the JSON object. No markdown, no commentary.`;
+10. Use consistent, canonical tags for the same subject matter across policies. For example, always use "office-furniture" for any furniture/chair/desk policy, "ergonomic" for ergonomic items, "medical-supplies" for first-aid and consumables, "incontinence" for incontinence products, etc. Do NOT use synonyms or paraphrases for the same concept across different policies — tag consistency is critical for cross-document conflict detection.
+11. Return ONLY the JSON object. No markdown, no commentary.`;
 
 // ── Background document processor ────────────────────────────────────
 
