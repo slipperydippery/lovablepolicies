@@ -144,8 +144,9 @@ IMPORTANT RULES:
 - Always respond in **${responseLang}**.
 
 CROSS-LANGUAGE MATCHING:
-- Policies are stored in English. The user may ask questions in any language.
-- You MUST match policies semantically regardless of language. For example, a Dutch question about "luiers" should match "Incontinence Material" policies.
+- Policies are stored in their source language (usually Dutch).
+- The user may ask questions in any language. You MUST match policies semantically regardless of language.
+- For example, an English question about "diapers" should match a Dutch "Incontinentiemateriaal" policy, and vice versa.
 - Always reason about the intent behind the question, not literal keyword matching.`;
 
     // Convert messages: separate system from user/assistant
@@ -445,7 +446,7 @@ OUTPUT FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
 {
   "policies": [
     {
-      "name": "Short English policy name",
+      "name": "Short policy name (in the same language as the source document)",
       "category": "Category name",
       "maxAmount": "EUR XX,XX per unit (human-readable)",
       "friction": "Low" | "Medium" | "High",
@@ -468,12 +469,26 @@ RULES:
    - 4310 = Incontinence Materials, 4320 = Pharmaceuticals, 4330 = Medical Aids, 4340 = Recreation
    - 4510 = Travel & Transport, 4600 = Temporary Staff
 4. Friction levels: Low = under EUR 50 / auto-approve, Medium = EUR 50-150 / needs awareness, High = above EUR 150 or requires approval.
-5. Policy names and all fields MUST be in English.
+5. All output fields (name, category, intent, tags, maxAmount) MUST be in the SAME LANGUAGE as the source document. If the document is in Dutch, output everything in Dutch. If the document is in English, output everything in English.
 6. limitAmount should be the numeric euro value (integer). Use 0 if no per-transaction limit.
 7. Dates: use reasonable defaults (startDate = 2026-01-01, endDate = 2026-12-31) unless the document specifies dates.
 8. The "intent" field MUST be 2-3 sentences. Include the specific conditions, who it applies to, what is allowed/restricted, and any approval or escalation requirements mentioned in the source document.
-9. The "tags" field MUST contain 3-5 lowercase hyphenated tags describing the specific subject matter and item type of the policy. Tags should be specific enough to distinguish between different product types within the same category. For example: ["ergonomic", "office-chair", "furniture"] or ["customer-gift", "client-relations", "hospitality"]. Do NOT use generic tags like "procurement" or "policy".
-10. Use consistent, canonical tags for the same subject matter across policies. For example, always use "office-furniture" for any furniture/chair/desk policy, "ergonomic" for ergonomic items, "medical-supplies" for first-aid and consumables, "incontinence" for incontinence products, etc. Do NOT use synonyms or paraphrases for the same concept across different policies — tag consistency is critical for cross-document conflict detection.
+9. The "tags" field MUST contain 3-5 lowercase tags describing the specific subject matter and item type of the policy, in the same language as the source document. Each tag should be a SINGLE word or at most two hyphenated words. Do NOT create compound tags that merge multiple concepts (e.g. use "ergonomisch" NOT "ergonomisch-meubilair"). Tags should be specific enough to distinguish between different product types within the same category. Do NOT use generic tags like "inkoop" / "procurement" or "beleid" / "policy".
+10. Use consistent, canonical tags for the same subject matter across policies. Policies about the same topic MUST share at least 2 identical tags. Use this canonical tag list:
+   - Furniture/chairs/desks: "ergonomisch", "kantoormeubilair"
+   - Office supplies: "kantoorartikelen", "lyreco"
+   - Medical supplies: "medisch", "verbruiksartikelen"
+   - Incontinence: "incontinentie", "abena"
+   - Pharmacy: "farmacie", "medicatie"
+   - Groceries: "boodschappen", "voeding"
+   - Cleaning: "schoonmaak", "hygiene"
+   - Recreation: "recreatie", "welzijn"
+   - Travel: "reiskosten", "vervoer"
+   - Temporary staff: "uitzendkrachten", "personeel"
+   - Safety: "veiligheid", "brandpreventie"
+   - Building maintenance: "onderhoud", "gebouw"
+   - IT equipment: "it-apparatuur", "randapparatuur"
+   Add 1-2 more specific tags per policy beyond the canonical ones. Do NOT use synonyms or paraphrases for the same concept — tag consistency is critical for cross-document conflict detection.
 11. Return ONLY the JSON object. No markdown, no commentary.`;
 
 // ── Background document processor ────────────────────────────────────
@@ -600,7 +615,7 @@ async function processNextJob() {
           if (existing.id === row.id) continue;
           if (existing.status === "deprecated") continue;
           if (existing.limit_amount === null || existing.limit_amount === 0) continue;
-          if (existing.limit_amount === row.limit_amount) continue;
+          if (existing.limit_amount === row.limit_amount) { continue; }
 
           // Parse existing policy tags
           let existingTags: string[] = [];
@@ -620,7 +635,12 @@ async function processNextJob() {
               ((c.policy_a_id === existing.id && c.policy_b_id === row.id) ||
                (c.policy_a_id === row.id && c.policy_b_id === existing.id))
           );
-          if (alreadyExists) continue;
+          if (alreadyExists) {
+            // Ensure both policies are marked as conflict even if the record already exists
+            policyRepo.update(existing.id, { status: "conflict" });
+            policyRepo.update(row.id, { status: "conflict" });
+            continue;
+          }
 
           const conflictId = `conflict-${crypto.randomUUID()}`;
           conflictRepo.create({

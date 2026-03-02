@@ -28,13 +28,19 @@ export function useDocumentJobs() {
   const cancelledJobs = jobs.filter((j) => j.status === "cancelled");
 
   // Invalidate policies on every poll cycle while jobs are active
-  // so newly extracted policies appear in real-time
+  // so newly extracted policies appear in real-time.
+  // Also invalidate on the final active→inactive transition so the
+  // last batch of extracted policies is picked up without a page reload.
   const prevDataRef = useRef(query.data);
+  const prevHadActiveRef = useRef(false);
   useEffect(() => {
-    if (query.data !== prevDataRef.current && hasActiveJobs) {
-      queryClient.invalidateQueries({ queryKey: ["policies"] });
+    if (query.data !== prevDataRef.current) {
+      if (hasActiveJobs || prevHadActiveRef.current) {
+        queryClient.invalidateQueries({ queryKey: ["policies"] });
+      }
     }
     prevDataRef.current = query.data;
+    prevHadActiveRef.current = hasActiveJobs;
   }, [query.data, hasActiveJobs]);
 
   const invalidate = () => {

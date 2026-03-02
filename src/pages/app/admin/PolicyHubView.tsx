@@ -463,93 +463,127 @@ export default function PolicyHubView() {
         </div>
       )}
 
-      {/* ---- Table ---- */}
-      <Table<Policy>
-        data={filtered}
-        rowKey="id"
-        sort={sort}
-        onSortChange={setSort}
-        stickyHeader
-        className="max-h-[60vh]"
-        emptyMessage={t("policyHub.emptyMessage")}
-        onRowClick={(row) => setSelectedId(row.id)}
-        rowClassName={(row) => selectedId === row.id ? "!bg-blue-50 dark:!bg-grey-800" : ""}
-        columns={[
-          {
-            key: "id",
-            label: t("policyHub.colPolicyId"),
-            sortable: true,
-            width: "130px",
-            cell: (row) => <span className="font-mono whitespace-nowrap">{row.id}</span>,
-          },
-          {
-            key: "name",
-            label: t("policyHub.colName"),
-            sortable: true,
-            cell: (row) => <span className="font-semibold block truncate max-w-[200px]" title={row.name}>{row.name}</span>,
-          },
-          {
-            key: "category",
-            label: t("policyHub.colCategory"),
-            sortable: true,
-            cell: (row) => <span className="text-muted-foreground">{row.category}</span>,
-          },
-          {
-            key: "status",
-            label: t("policyHub.colStatus"),
-            width: "120px",
-            cell: (row) => statusBadge(row.status),
-          },
-          {
-            key: "maxAmount",
-            label: t("policyHub.colMaxAmount"),
-            cell: (row) => <span className="text-muted-foreground">{row.maxAmount || "—"}</span>,
-          },
-          {
-            key: "friction",
-            label: t("policyHub.colFriction"),
-            width: "80px",
-            cell: (row) => <span className="text-muted-foreground">{row.friction}</span>,
-          },
-          {
-            key: "benchmarkScore",
-            label: t("policyHub.colBenchmark"),
-            cell: (row) =>
-              row.benchmarkScore ? (
-                <span className="inline-flex items-center gap-sp-4">
-                  {row.benchmarkWarning && (
-                    <i className="fa-solid fa-triangle-exclamation text-warning text-xs" aria-hidden="true" />
-                  )}
-                  <span className={row.benchmarkWarning ? "text-warning" : "text-success"}>
-                    {row.benchmarkScore}
+      {/* ---- Table + Ghost skeleton rows ---- */}
+      <div>
+        <Table<Policy>
+          data={filtered}
+          rowKey="id"
+          sort={sort}
+          onSortChange={setSort}
+          stickyHeader
+          className={`max-h-[60vh]${hasActiveJobs ? " !rounded-b-none" : ""}`}
+          emptyMessage={t("policyHub.emptyMessage")}
+          onRowClick={(row) => setSelectedId(row.id)}
+          rowClassName={(row) => selectedId === row.id ? "!bg-blue-50 dark:!bg-grey-800" : ""}
+          columns={[
+            {
+              key: "id",
+              label: t("policyHub.colPolicyId"),
+              sortable: true,
+              width: "130px",
+              cell: (row) => <span className="font-mono whitespace-nowrap">{row.id}</span>,
+            },
+            {
+              key: "name",
+              label: t("policyHub.colName"),
+              sortable: true,
+              cell: (row) => <span className="font-semibold block truncate max-w-[200px]" title={row.name}>{row.name}</span>,
+            },
+            {
+              key: "category",
+              label: t("policyHub.colCategory"),
+              sortable: true,
+              cell: (row) => <span className="text-muted-foreground">{row.category}</span>,
+            },
+            {
+              key: "status",
+              label: t("policyHub.colStatus"),
+              width: "120px",
+              cell: (row) => statusBadge(row.status),
+            },
+            {
+              key: "maxAmount",
+              label: t("policyHub.colMaxAmount"),
+              cell: (row) => <span className="text-muted-foreground">{row.maxAmount || "—"}</span>,
+            },
+            {
+              key: "friction",
+              label: t("policyHub.colFriction"),
+              width: "80px",
+              cell: (row) => <span className="text-muted-foreground">{row.friction}</span>,
+            },
+            {
+              key: "benchmarkScore",
+              label: t("policyHub.colBenchmark"),
+              cell: (row) =>
+                row.benchmarkScore ? (
+                  <span className="inline-flex items-center gap-sp-4">
+                    {row.benchmarkWarning && (
+                      <i className="fa-solid fa-triangle-exclamation text-warning text-xs" aria-hidden="true" />
+                    )}
+                    <span className={row.benchmarkWarning ? "text-warning" : "text-success"}>
+                      {row.benchmarkScore}
+                    </span>
                   </span>
-                </span>
-              ) : (
-                <span className="text-muted-foreground">—</span>
-              ),
-          },
-          {
-            key: "sourceDocument",
-            label: t("policyHub.colSource"),
-            cell: (row) =>
-              row.sourceDocument ? (
-                <span className="inline-flex items-center gap-sp-4 text-muted-foreground">
-                  <i className="fa-solid fa-file-lines text-xs" aria-hidden="true" />
-                  <span className="truncate max-w-[140px]" title={row.sourceDocument}>{row.sourceDocument.split(",")[0].trim()}</span>
-                </span>
-              ) : (
-                <span className="text-muted-foreground">—</span>
-              ),
-          },
-          {
-            key: "endDate",
-            label: t("policyHub.colEndDate"),
-            sortable: true,
-            width: "100px",
-            cell: (row) => <span className="text-muted-foreground whitespace-nowrap">{row.endDate || "—"}</span>,
-          },
-        ]}
-      />
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                ),
+            },
+            {
+              key: "sourceDocument",
+              label: t("policyHub.colSource"),
+              cell: (row) =>
+                row.sourceDocument ? (
+                  <span className="inline-flex items-center gap-sp-4 text-muted-foreground">
+                    <i className="fa-solid fa-file-lines text-xs" aria-hidden="true" />
+                    <span className="truncate max-w-[140px]" title={row.sourceDocument}>{row.sourceDocument.split(",")[0].trim()}</span>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                ),
+            },
+            {
+              key: "endDate",
+              label: t("policyHub.colEndDate"),
+              sortable: true,
+              width: "100px",
+              cell: (row) => <span className="text-muted-foreground whitespace-nowrap">{row.endDate || "—"}</span>,
+            },
+          ]}
+        />
+        {/* Ghost skeleton rows while extracting */}
+        {hasActiveJobs && (
+          <div className="border border-t-0 border-input rounded-b-lg overflow-hidden">
+            <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: "130px" }} />
+                <col />
+                <col />
+                <col style={{ width: "120px" }} />
+                <col />
+                <col style={{ width: "80px" }} />
+                <col />
+                <col />
+                <col style={{ width: "100px" }} />
+              </colgroup>
+              <tbody>
+                {[0, 1, 2].map((i) => (
+                  <tr key={i} className={i % 2 === 1 ? "bg-surface" : ""}>
+                    {Array.from({ length: 9 }).map((_, ci) => (
+                      <td key={ci} className="px-sp-16 py-sp-8">
+                        <div
+                          className="h-4 bg-muted animate-pulse rounded w-3/4"
+                          style={{ animationDelay: `${i * 200 + ci * 75}ms` }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* ---- Detail Panel (slide-out) ---- */}
       <div
