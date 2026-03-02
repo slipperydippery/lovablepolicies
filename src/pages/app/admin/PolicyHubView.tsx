@@ -498,7 +498,7 @@ export default function PolicyHubView() {
             {
               key: "status",
               label: t("policyHub.colStatus"),
-              width: "120px",
+              width: "150px",
               cell: (row) => statusBadge(row.status),
             },
             {
@@ -559,7 +559,7 @@ export default function PolicyHubView() {
                 <col style={{ width: "130px" }} />
                 <col />
                 <col />
-                <col style={{ width: "120px" }} />
+                <col style={{ width: "150px" }} />
                 <col />
                 <col style={{ width: "80px" }} />
                 <col />
@@ -572,8 +572,8 @@ export default function PolicyHubView() {
                     {Array.from({ length: 9 }).map((_, ci) => (
                       <td key={ci} className="px-sp-16 py-sp-8">
                         <div
-                          className="h-4 bg-muted animate-pulse rounded w-3/4"
-                          style={{ animationDelay: `${i * 200 + ci * 75}ms` }}
+                          className="h-4 rounded w-3/4 skeleton-shimmer"
+                          style={{ animationDelay: `${i * 300 + ci * 80}ms` }}
                         />
                       </td>
                     ))}
