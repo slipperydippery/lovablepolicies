@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/ui/file-upload";
 import { toast } from "@/hooks/use-toast";
 import { useActiveLocation } from "@/contexts/ActiveLocationContext";
-import { CHAT_URL as API_CHAT_URL, fetchPolicies } from "@/lib/api";
+import { CHAT_URL, fetchPolicies } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -58,8 +58,6 @@ function parsePoliciesMarker(text: string): { clean: string; policyIds: string[]
 function timeNow() {
   return new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
 }
-
-const CHAT_URL = import.meta.env.VITE_CHAT_API_URL || API_CHAT_URL;
 
 /* ------------------------------------------------------------------ */
 /*  Streaming helper                                                   */

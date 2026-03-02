@@ -33,8 +33,8 @@ app.use(cors({
     if (!origin) return callback(null, true);
     // Allow all localhost / 127.0.0.1 ports for local development
     if (origin.match(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/)) return callback(null, true);
-    // Production frontend
-    if (origin === "https://lovablepolicies.vercel.app") return callback(null, true);
+    // Production frontend + Vercel preview deployments
+    if (origin.match(/^https:\/\/.*\.vercel\.app$/) || origin === "https://lovablepolicies.vercel.app") return callback(null, true);
     console.warn("CORS blocked origin:", origin);
     callback(new Error("Not allowed by CORS"));
   },
