@@ -97,6 +97,14 @@ export async function updateBenchmarks(
   return handleResponse<{ count: number }>(res);
 }
 
+export async function autoBenchmarkPolicies(): Promise<{ count: number }> {
+  const res = await fetch(`${API_URL}/api/policies/auto-benchmark`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return handleResponse<{ count: number }>(res);
+}
+
 // ── Document Jobs ────────────────────────────────────────────────────
 
 export async function createDocumentJobs(files: File[]): Promise<{ jobs: { id: string; filename: string }[] }> {

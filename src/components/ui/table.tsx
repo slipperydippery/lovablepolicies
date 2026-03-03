@@ -233,7 +233,7 @@ function Table<T extends Record<string, any>>({
 
   const renderThead = (includeScrollbarCol = false) => (
     <thead>
-      <tr className="border-b border-input bg-muted h-[44px]">
+      <tr className="border-b border-input bg-muted h-[48px]">
         {selectable && (
           <th className={cn(headerCellPadding, textSize, "w-10 text-center")}>
             <div className="flex items-center justify-center">

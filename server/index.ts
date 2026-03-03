@@ -13,6 +13,7 @@ import multer from "multer";
 import { PDFParse } from "pdf-parse";
 import Anthropic from "@anthropic-ai/sdk";
 import db from "./db.js";
+import { assignBenchmark } from "./benchmark-data.js";
 import {
   SqlitePolicyRepository,
   SqliteDocumentJobRepository,
@@ -263,6 +264,30 @@ app.post("/api/policies/benchmarks", (req: Request, res: Response) => {
     };
     const count = policyRepo.updateBenchmarks(updates);
     res.json({ count });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/policies/auto-benchmark", (req: Request, res: Response) => {
+  try {
+    const allPolicies = policyRepo.getAll();
+    const updates: { id: string; benchmark_score: string | null; benchmark_warning: boolean }[] = [];
+
+    for (const policy of allPolicies) {
+      if (policy.benchmark_score !== null) continue;
+      const result = assignBenchmark(policy);
+      updates.push({
+        id: policy.id,
+        benchmark_score: result.benchmark_score,
+        benchmark_warning: result.benchmark_warning,
+      });
+    }
+
+    if (updates.length > 0) {
+      policyRepo.updateBenchmarks(updates);
+    }
+    res.json({ count: updates.length });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

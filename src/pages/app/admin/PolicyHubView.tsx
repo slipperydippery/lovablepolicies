@@ -11,7 +11,7 @@ import { mockLedger } from "@/data/mock-ledger";
 import { usePolicies } from "@/hooks/use-policies";
 import type { Policy } from "@/hooks/use-policies";
 import { useDocumentJobs } from "@/hooks/use-document-jobs";
-import { deleteAllDocumentJobs, cancelDocumentJob, fetchPolicyConflicts, resolveConflict as apiResolveConflict, resolveConflictKeepBoth as apiResolveConflictKeepBoth, type PolicyConflictRow } from "@/lib/api";
+import { deleteAllDocumentJobs, cancelDocumentJob, fetchPolicyConflicts, resolveConflict as apiResolveConflict, resolveConflictKeepBoth as apiResolveConflictKeepBoth, autoBenchmarkPolicies, type PolicyConflictRow } from "@/lib/api";
 import { resetPoliciesTable, populateBenchmarks } from "@/data/onboarding-policies";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -80,9 +80,19 @@ export default function PolicyHubView() {
   const handleBenchmark = async () => {
     setBenchmarking(true);
     try {
-      const count = await populateBenchmarks();
+      // First apply hardcoded demo benchmarks (if demo policies exist)
+      let total = 0;
+      try {
+        const demoCount = await populateBenchmarks();
+        total += demoCount;
+      } catch { /* no demo policies — fine */ }
+
+      // Then auto-benchmark any remaining policies without a score
+      const { count: autoCount } = await autoBenchmarkPolicies();
+      total += autoCount;
+
       queryClient.invalidateQueries({ queryKey: ["policies"] });
-      toast.success(t("policyHub.benchmarked", { count }));
+      toast.success(t("policyHub.benchmarked", { count: total }));
     } catch {
       toast.error(t("policyHub.benchmarkFailed"));
     } finally {
@@ -244,6 +254,52 @@ export default function PolicyHubView() {
     "POL-2026-120": {
       explanation: "No sector benchmark exists for ad-hoc emergency purchases. Consider setting a quarterly cap to control cumulative spend.",
     },
+  };
+
+  /* Dynamic insight generator for AI-extracted policies */
+  const SECTOR_STANDARDS: Record<number, { label: string; amount: number; source: string }> = {
+    4110: { label: "EUR 18,00 per dag per groep", amount: 18, source: "VVT Sectorgemiddelde 2024" },
+    4120: { label: "EUR 12,00 per maaltijd", amount: 12, source: "VVT Sectorgemiddelde 2024" },
+    4130: { label: "EUR 8,00 per bestelling", amount: 8, source: "VVT Sectorgemiddelde 2024" },
+    4210: { label: "EUR 15,00 per dag per groep", amount: 15, source: "VVT Sectorgemiddelde 2024" },
+    4230: { label: "EUR 175,00 per bestelling", amount: 175, source: "Sectorgemiddelde 2024" },
+    4310: { label: "EUR 2,30 per cliënt per dag", amount: 2, source: "GGZ Benchmark 2024" },
+    4320: { label: "EUR 175,00 per transactie", amount: 175, source: "GGZ Benchmark 2024" },
+    4330: { label: "EUR 60,00 per transactie", amount: 60, source: "VVT Sectorgemiddelde 2024" },
+    4340: { label: "EUR 25,00 per activiteit", amount: 25, source: "VVT Sectorgemiddelde 2024" },
+    4510: { label: "EUR 0,23 per km", amount: 0, source: "Belastingdienst 2024" },
+    4600: { label: "Geen limiet per transactie", amount: 0, source: "VVT Sectorgemiddelde 2024" },
+    4220: { label: "EUR 100,00 per bestelling", amount: 100, source: "Sectorgemiddelde 2024" },
+    4240: { label: "EUR 300,00 per item", amount: 300, source: "Sectorgemiddelde 2024" },
+    4410: { label: "EUR 200,00 per reparatie", amount: 200, source: "Sectorgemiddelde 2024" },
+    4420: { label: "EUR 60,00 per bestelling", amount: 60, source: "Sectorgemiddelde 2024" },
+    4430: { label: "EUR 50,00 per afvoer", amount: 50, source: "Sectorgemiddelde 2024" },
+    4440: { label: "EUR 180,00 per aankoop", amount: 180, source: "Sectorgemiddelde 2024" },
+    4450: { label: "EUR 35,00 per locatie per seizoen", amount: 35, source: "Sectorgemiddelde 2024" },
+    4460: { label: "EUR 125,00 per apparaat", amount: 125, source: "Sectorgemiddelde 2024" },
+    4520: { label: "EUR 90,00 per voertuig per maand", amount: 90, source: "Sectorgemiddelde 2024" },
+    4610: { label: "EUR 450,00 per medewerker per jaar", amount: 450, source: "VVT Sectorgemiddelde 2024" },
+    4620: { label: "EUR 12,00 per persoon per evenement", amount: 12, source: "Sectorgemiddelde 2024" },
+    4630: { label: "EUR 20,00 per geschenk", amount: 20, source: "Sectorgemiddelde 2024" },
+  };
+
+  const getDynamicInsight = (policy: Policy): { explanation: string; standardAmount?: string; standardBenchmark?: string } | null => {
+    if (!policy.benchmarkWarning || !policy.afasCode) return null;
+    const std = SECTOR_STANDARDS[policy.afasCode];
+    if (!std) return { explanation: `Geen sectordata beschikbaar voor deze beleidscategorie. Overweeg om vergelijkbare organisaties te raadplegen.` };
+
+    const limit = policy.limit;
+    const isAbove = limit > std.amount;
+    const limitStr = `EUR ${limit.toLocaleString("nl-NL", { minimumFractionDigits: 2 })}`;
+    const explanation = isAbove
+      ? `Uw limiet van ${limitStr} ligt boven de sectornorm van ${std.label} (${std.source}). Overweeg om deze te verlagen om overschrijdingsrisico te beperken.`
+      : `Uw limiet van ${limitStr} ligt onder de sectornorm van ${std.label} (${std.source}). Dit kan leiden tot onvoldoende budget voor dagelijkse behoeften.`;
+
+    return {
+      explanation,
+      standardAmount: std.label,
+      standardBenchmark: `Conform ${std.source}`,
+    };
   };
 
   // Helpers for conflict resolution
@@ -471,7 +527,7 @@ export default function PolicyHubView() {
           sort={sort}
           onSortChange={setSort}
           stickyHeader
-          className={`max-h-[60vh]${hasActiveJobs ? " !rounded-b-none" : ""}`}
+          className={hasActiveJobs ? "!rounded-b-none" : undefined}
           emptyMessage={t("policyHub.emptyMessage")}
           onRowClick={(row) => setSelectedId(row.id)}
           rowClassName={(row) => selectedId === row.id ? "!bg-blue-50 dark:!bg-grey-800" : ""}
@@ -498,7 +554,7 @@ export default function PolicyHubView() {
             {
               key: "status",
               label: t("policyHub.colStatus"),
-              width: "150px",
+              width: "170px",
               cell: (row) => statusBadge(row.status),
             },
             {
@@ -559,7 +615,7 @@ export default function PolicyHubView() {
                 <col style={{ width: "130px" }} />
                 <col />
                 <col />
-                <col style={{ width: "150px" }} />
+                <col style={{ width: "170px" }} />
                 <col />
                 <col style={{ width: "80px" }} />
                 <col />
@@ -671,7 +727,7 @@ export default function PolicyHubView() {
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {t("policyHub.pendingReviewPolicyDesc")}
                 </p>
-                <div className="flex gap-sp-8 mt-sp-12">
+                <div className="flex flex-wrap gap-sp-8 mt-sp-12">
                   <Button
                     variant="solid"
                     colorScheme="primary"
@@ -782,7 +838,7 @@ export default function PolicyHubView() {
 
             {/* ---- Benchmark Insight Card (generic) ---- */}
             {selectedPolicy.benchmarkWarning && selectedPolicy.status !== "deprecated" && (() => {
-              const insight = BENCHMARK_INSIGHTS[selectedPolicy.id];
+              const insight = BENCHMARK_INSIGHTS[selectedPolicy.id] ?? getDynamicInsight(selectedPolicy);
               if (!insight) return null;
               return (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-sp-16 dark:border-blue-800 dark:bg-blue-950">
@@ -834,7 +890,7 @@ export default function PolicyHubView() {
                   <textarea
                     value={draft.intent}
                     onChange={(e) => setDraft((d) => ({ ...d, intent: e.target.value }))}
-                    rows={3}
+                    rows={5}
                     className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
                   />
                 </div>
